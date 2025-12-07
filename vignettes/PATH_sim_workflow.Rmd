@@ -1,0 +1,301 @@
+---
+title: "PATH Model Simulation Workflow"
+author: "Guen Grosklos"
+output: rmarkdown::html_vignette
+---
+
+```{r, echo = F}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+
+```
+
+### Introduction
+
+This vignette demonstrates the end-to-end workflow for the PATH.cam package. The package is designed to simulate animal movement across heterogeneous landscapes, simulate camera trap observations based on geometric viewsheds, and estimate animal density using a movement-informed Bayesian model (PATH).
+
+The workflow consists of four main stages:
+
+Design: Defining the landscape, animal population, and sampling strategy.
+
+Simulation: Running the Agent-Based Model (ABM).
+
+Data Collection: Extracting camera "captures" and telemetry data.
+
+Analysis: Fitting the PATH model via MCMC.
+
+1. Setup and Initialization
+
+First, we load the necessary libraries.
+
+```{r}
+
+library(tidyverse)
+library(lattice)
+library(gridExtra)
+library(PATH.cam) 
+library(doParallel)
+library(foreach)
+
+# Set visualization preferences for consistent plotting
+fig_colors <- c("#2ca25f", "#fc8d59", "#67a9cf", "#f768a1", "#bae4b3", "#fed98e")
+options(ggplot2.discrete.colour = fig_colors)
+options(ggplot2.discrete.fill = fig_colors)
+```
+
+
+2. Study Design
+
+We define the parameters for the simulation. For this vignette, we use a smaller grid and fewer iterations than a full academic study to ensure the code runs quickly on a personal computer.
+
+Simulation Parameters
+
+We define a $20 \times 20$ grid with 10 groups of animals.
+
+```{r}
+
+# 1. General Simulation Parameters
+study_design <- tibble::tibble(
+  q = 20^2,           # Grid cells (reduced for vignette speed)
+  dx = 1, dy = 1,     # Grid cell dimensions
+  t_steps = 100,      # Time steps
+  dt = 1,
+  bounds = list(c(0, 20)), 
+  num_groups = 10,
+  group_sizes = list(rep(1, 10)),
+  group_spread = 0,   # Tightness of grouping behavior
+  tot_animals = 10,
+  
+  # MCMC parameters (reduced for demonstration)
+  num_runs = 1,       
+  n_iter = 1000,       
+  burn_in = 200,      
+  covariate_labels = list(c("Slow", "Medium", "Fast"))
+)
+
+# Calculate Total Area
+study_design$tot_A <- (study_design$bounds[[1]][2] - study_design$bounds[[1]][1])^2
+
+# 2. Landscape Definitions (Speed Covariates)
+lscape_design <- tibble::tibble(
+  lscape_tag = "Random",
+  Speed_ID = list(c("Slow", "Medium", "Fast")),
+  Speed_mins = list(c(.19, .4, .9)),
+  Speed_maxes = list(c(.21, .5, 1.1))
+)
+
+# 3. Camera Design
+cam_design <- tibble::tibble(
+  ncam = 50,
+  Design_name = "Random",
+  Design = "Random",
+  Props = list(c(1, 1, 1)), 
+  cam_length = study_design$dx * 0.1
+)
+
+# Calculate Camera Area (Isosceles Triangle)
+cam_design$cam_A <- cam_design$cam_length ^ 2 / 2
+cam_design$tot_snaps <- cam_design$ncam * study_design$t_steps
+```
+
+
+3. Running the Simulation
+
+We generate the landscape grid and run the Agent-Based Model (ABM). The ABM simulates animals moving according to a Correlated Random Walk (CRW), where speed is determined by the underlying landscape type.
+
+```{r}
+# Generate Landscape
+lscape_defs <- lscape_creator(study_design, lscape_design)
+
+# Run Agent-Based Model
+# (This simulates movement for all animals over all time steps)
+animalxy.all <- ABM_sim(study_design, lscape_defs)
+
+# Visualize the trajectories (Optional)
+# plot_ABM(study_design, cam_design, cam_locs_placeholder, animalxy.all)
+```
+
+
+4. Data Collection
+
+Before running the statistical model, we must format the data. This involves two distinct processes:
+
+Telemetry Data: Used to establish priors for residence time.
+
+Camera Data: The primary observation model.
+
+4.1 Covariates and Telemetry
+
+```{r}
+# 1. Create Covariate Matrix (Z)
+# This maps every grid cell to a specific landscape type (Slow/Med/Fast)
+cov_labels <- unlist(study_design$covariate_labels)
+study_design <- study_design %>% 
+  dplyr::mutate(
+    num_covariates = length(cov_labels),
+    Z = list(create_covariate_mat(lscape_defs, study_design, cov_labels))
+  )
+
+# 2. Collect Telemetry Data (for Priors)
+tele_summary <- Collect_tele_data(animalxy.all, study_design)
+
+# 3. Adjust Priors based on Telemetry
+# We set the "Fast" category (shortest stay time) as the reference category
+ref_cat_idx <- which.min(tele_summary$stay_prop)
+study_design$Z[[1]][, ref_cat_idx] <- 1 # Set reference intercept in Design Matrix
+
+# Normalize proportions relative to the reference
+prop_adjust <- tele_summary$stay_prop / tele_summary$stay_prop[ref_cat_idx]
+prop_adjust[ref_cat_idx] <- tele_summary$stay_prop[ref_cat_idx]
+
+# Define Priors for Kappa (Staying Time parameter)
+kappa_prior_mu <- log(tele_summary$stay_prop)
+kappa_prior_var <- tele_summary$stay_sd^2
+```
+
+
+4.2 Camera Observations
+
+We now overlay the cameras on the landscape and calculate the geometric intersections between animal paths and camera viewsheds.
+
+```{r}
+# 1. Generate Camera Locations
+cam_locs <- create_cam_samp_design(study_design, lscape_defs, cam_design)
+
+# 2. Extract Raw Captures
+# This function calculates exact entry/exit times for every intersection
+raw_captures <- get_cam_captures(
+  animalxy.all %>% dplyr::filter(t != 0), 
+  cam_locs, 
+  study_design
+)
+
+# 3. Aggregate into Counts per Camera
+count_data <- get_count_data(
+  cam_locs, 
+  raw_captures, 
+  animalxy.all %>% dplyr::filter(t != 0)
+)
+
+# Preview Data
+head(count_data)
+```
+
+
+5. Model Fitting (PATH)
+
+We fit the PATH model using an Adaptive Metropolis-Hastings MCMC algorithm. The model integrates the camera counts with the landscape covariates to estimate abundance.
+```{r}
+# Prepare habitat summary for the likelihood calculation
+habitat_summary <- lscape_defs %>%
+  dplyr::group_by(Speed) %>%
+  dplyr::summarise(n_lscape = dplyr::n()) %>%
+  dplyr::mutate(prop_lscape = n_lscape / sum(n_lscape)) %>%
+  dplyr::left_join(
+    cam_locs %>% dplyr::group_by(Speed) %>% dplyr::summarise(ncams = dplyr::n()),
+    by = "Speed"
+  ) %>%
+  dplyr::left_join(tele_summary, by = "Speed") %>%
+  dplyr::mutate(
+    prop_cams = ncams / sum(ncams, na.rm = TRUE),
+    prop_cams = replace_na(prop_cams, 0)
+  ) 
+
+# Run MCMC
+chain_PATH <- fit.model.mcmc.PATH(
+  study_design = study_design,
+  cam_design = cam_design,
+  cam_locs = cam_locs,
+  # Initial values based on naive means
+  gamma_start = rep(log(mean(count_data$count)), study_design$num_covariates),
+  gamma_prior_var = 10^4,
+  gamma_tune = rep(-1, study_design$num_covariates),
+  # Initial values based on priors
+  kappa_start = log(exp(kappa_prior_mu) / sum(exp(kappa_prior_mu))),
+  kappa_prior_mu = kappa_prior_mu,
+  kappa_prior_var = kappa_prior_var,
+  kappa_tune = -1,
+  count_data_in = count_data,
+  habitat_summary = habitat_summary
+)
+
+# Calculate Posterior Estimates (removing burn-in)
+est_PATH <- mean(chain_PATH$tot_u[study_design$burn_in:study_design$n_iter])
+sd_PATH <- sd(chain_PATH$tot_u[study_design$burn_in:study_design$n_iter])
+
+print(paste("Estimated Abundance (PATH):", round(est_PATH, 2)))
+print(paste("True Abundance:", study_design$tot_animals))
+```
+
+
+6. Comparison with Instantaneous Sampling (IS)
+
+For method validation, we often compare the PATH model against a standard Instantaneous Sampling (IS) estimator. The IS method assumes independence between sampling units and does not account for movement-induced correlation or stay-time variance.
+```{r}
+# Calculate IS Mean
+IS_mean <- sum(count_data$count) / study_design$t_steps / cam_design$ncam /
+        cam_design$cam_A * study_design$tot_A
+
+# Calculate IS Variance (Delta Method)
+M <- cam_design$ncam
+J <- study_design$t_steps
+L <- cam_design$cam_A * M * J
+
+# Variance of the counts
+sum_c <- sum((J * cam_design$cam_A)^2 * (count_data$count / (J * cam_design$cam_A) - sum(count_data$count) / L)^2)
+
+IS_var <- M /(L^2 * (M - 1)) * sum_c
+    
+# Delta method for Standard Error
+form <- sprintf("~ %f * x1", study_design$tot_A)
+SE_IS = msm::deltamethod(as.formula(form), IS_mean / study_design$tot_A, IS_var)
+
+print(paste("Estimated Abundance (IS):", round(IS_mean, 2)))
+```
+
+7. Comparative Study Framework
+
+In a full research context, you would loop over multiple designs and camera densities to compare bias and precision. The code below illustrates how to set up the loop structure used to generate comparative plots.
+
+Note: This block is not evaluated in this vignette due to execution time, but serves as a template for large-scale analysis.
+
+```{r}
+# Define variations in effort
+cam_tests <- c(25, 50, 75, 100, 125)
+
+# Define variations in design strategy
+all_designs <- tibble::tibble(
+  Design_name = c("Random", "Slow_Bias", "Fast_Bias"),
+  Design = c("Random", "Bias", "Bias"),
+  Props = list(c(1, 1, 1), c(0.8, 0.1, 0.1), c(0.1, 0.1, 0.8))
+)
+
+# Loop structure
+for (cam_des in 1:nrow(all_designs)) {
+  for (cam in 1:length(cam_tests)) {
+    # 1. Update cam_design with current ncam and props
+    # 2. Run ABM_sim
+    # 3. Fit PATH Model
+    # 4. Calculate IS Estimate
+    # 5. Store results in a master dataframe (D_all)
+  }
+}
+```
+
+
+8. Visualizing Results
+
+Assuming D_all contains the aggregated results from the loop above, you can use the package's plotting functions to visualize performance.
+
+```{r}
+
+# # Plot Mean Estimates vs True Abundance
+# plot_multirun_means(study_design, D_all)
+# 
+# # Plot Mean Absolute Percentage Error (MAPE)
+# plot_multirun_mape(D_all, study_design$tot_animals)
+```
