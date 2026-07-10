@@ -203,6 +203,7 @@ get_encounter_data <- function(cam_locs, cam_captures) {
 #'   individual encounters and values represent normalized stay times.
 #' }
 #'
+#' @export
 get_stay_time_data <- function(cam_locs, cam_captures) {
 
   stay_time_raw <- cam_captures |>
@@ -236,7 +237,7 @@ get_stay_time_data <- function(cam_locs, cam_captures) {
 
   # Format staying time data
   stay_time_data <- stay_time_raw %>%
-    dplyr::mutate(t_stay = t_stay / stay_time_normalize) %>%
+    # dplyr::mutate(t_stay = t_stay / stay_time_normalize) %>%
     # dplyr::add_row(lscape_index = cam_locs$lscape_index[cam_locs$lscape_index %notin% cam_captures$lscape_index]) |>
     dplyr::full_join(cam_locs |>
                        select(cam_ID, lscape_index),
