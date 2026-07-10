@@ -37,11 +37,12 @@
 lscape_creator <- function(study_design, lscape_design) {
   q <- study_design$q
 
-  speed_bounds <- tibble::tibble(
-    Speed = unlist(lscape_design$Speed_ID),
-    Min = unlist(lscape_design$Speed_mins),
-    Max = unlist(lscape_design$Speed_maxes)
-  )
+  speed_bounds <- lscape_design |>
+    dplyr::rename(
+      Speed = Speed_ID,
+      Min = Speed_mins,
+      Max = Speed_maxes
+    )
 
   lscape_defs <- tibble::tibble(
     Index = 1:q,
@@ -50,15 +51,35 @@ lscape_creator <- function(study_design, lscape_design) {
   )
 
   # Create dataframe for randomly-distributed speeds
-  lscape_defs <- lscape_defs |>
-    dplyr::bind_cols(dplyr::sample_n(speed_bounds, q, replace = T)) |>
-    dplyr::mutate(
-      Value = runif(
-        q,
-        Min,
-        Max
+  if (unique(lscape_design$lscape_tag) == "Random") {
+    lscape_defs <- lscape_defs |>
+      dplyr::bind_cols(dplyr::sample_n(speed_bounds, q, replace = T)) |>
+      dplyr::mutate(
+        Value = runif(
+          q,
+          Min,
+          Max
+        )
       )
-    )
+  } else {
+    # Create landscape with non-random lscape types
+    lscape_defs <- lscape_defs |>
+      dplyr::bind_cols(
+        dplyr::sample_n(
+          speed_bounds,
+          q,
+          replace = T,
+          weight = Probs
+        )
+      ) |>
+      dplyr::mutate(
+        Value = runif(
+          q,
+          Min,
+          Max
+        )
+      )
+  }
 
   return(lscape_defs)
 }
