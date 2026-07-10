@@ -30,39 +30,29 @@ study_design <- tibble::tibble(
   q = 30^2, # Number grid cells
   dx = 1,  # Grid cell lengths
   dy = 1,
-  t_steps = 500, # Number of time steps (3000 * 15 min ~ 31.25 days)
-  dt = 1,     # Time step size
+  t_steps = 500, # Number of time steps
+  dt = 1, # Time step size
+  t_censor = 2,
   bounds = list(c(0, dx * q ^ 0.5)), # Sampling area boundaries
   tot_A = (bounds[[1]][2] - bounds[[1]][1])^2,
   num_groups = 100,
   group_sizes = list(rep(1, num_groups)),
   group_spread = 0, # Tightness of grouping behavior (relative to grid size)
   tot_animals = sum(unlist(group_sizes)),
-  h_range_strength = NA,  # Home range size (not to scale)
-  activity_sync = "sync",
-  activity_prob = list(rep(1, t_steps)), # can be defined for all time steps
   # MCMC parms
-  num_runs = 10,
-  n_iter = 400,
-  burn_in = 300,
-  # staying time censors
-  t_censor = 10, 
-  # run_models = list(1:5),
+  num_runs = 1000,
+  n_iter = 40000,
+  burn_in = 30000,
   covariate_labels = list(c("Slow", "Medium", "Fast"))
 )
 
 # Landscape design
 lscape_design <- tibble::tibble(
-  lscape_tag = "Random",
-  default_kappa = 0, # Turning angle
-  num_roads = 0,
-  Speed_ID = list(c("Slow", "Medium", "Fast")),
-  # Speed_mins = list(c(.05, .3, .9)),
-  # Speed_maxes = list(c(.15, .5, 1.1)),
-  Speed_mins = list(c(.19, .4, .9)),
-  Speed_maxes = list(c(.21, .5, 1.1)),
-  Trail_ID = list(c("On Trail", "Off TraiSSl")),
-  Trail_speed = list(c("Medium", "Medium"))
+  lscape_tag = "Random", # "Custom", #
+  Speed_ID = c("Slow", "Medium", "Fast"),
+  Speed_mins = c(.19, .4, .9),
+  Speed_maxes = c(.21, .5, 1.1),
+  Probs = c(0.1, 0.1, 0.8)
 )
 
 all_designs <- tibble::tibble(
@@ -395,7 +385,8 @@ for (cam_des in 1:nrow(all_designs)) {
     #                                  "_cam.RData")
     # )
     
-    rm(save_results, all_data, D_all)
+    # rm(save_results, all_data, D_all)
+    rm(all_data, D_all)
     
     save_results_REST <- list(
       study_design,
