@@ -32,7 +32,7 @@ mu_base <- tibble::tibble(
   Mu = c(4, 2, 0.02, 0.5),
   # speed = 4 * Mu * 900 / 30 / 30 * 8,
   # speed = c(0, 2, 0.08, 0.5) * 30, # Manually set km/hr to cell/hr
-  speed = c(0, 2, 1, 1) * 30, # Manually set km/hr to cell/hr
+  speed = c(0, 2, 1, 0.5) * 30, # Manually set km/hr to cell/hr
   speed_km_hr = 4 * Mu * 900 / 30 / 1000
 )
 
@@ -79,7 +79,7 @@ study_design <- tibble::tibble(
   group_spread = 0, # Tightness of grouping behavior (relative to grid size)
   tot_animals = sum(unlist(group_sizes)),
   # MCMC parms
-  num_runs = 1000,
+  num_runs = 10,
   n_iter = 40000,
   burn_in = 30000,
   covariate_labels = list(c("Water", "Development", "Forest", "Agriculture"))
@@ -123,8 +123,10 @@ lscape_defs <- df |>
   )
 
 # Create covariate matrix with 0, 1 values
+# Recalculate total area to exclude Water cells
 study_design <- study_design %>%
   dplyr::mutate(
+    tot_A = dx * dy * (sum(lscape_defs$Speed != "Water")),
     num_covariates = length(unlist(covariate_labels)),
     Z = list(create_covariate_mat(
       lscape_defs,
@@ -137,11 +139,11 @@ all_designs <- tibble::tibble(
   Design =c("Random", "Bias"),
   Props = c(
     list(c(1, 1, 1, 1)),
-    list(c(1, 0, 0))
+    list(c(0, 1, 0, 0))
   )
 )
 
-for (cam_des in 1:nrow(all_designs)) {
+for (cam_des in 1:nrow(all_designs[1,])) {
   for (cam in 1:length(cam_tests)) {
 
     # Cam designs
@@ -179,8 +181,8 @@ for (cam_des in 1:nrow(all_designs)) {
 
       tele_summary <- Collect_tele_data(animalxy.all, study_design)
 
-      # Use smallest stay time as reference category
-      ref_cat_idx <- which(tele_summary$stay_prop == min(tele_summary$stay_prop))
+      # Use largest stay time as reference category
+      ref_cat_idx <- which(tele_summary$stay_prop == max(tele_summary$stay_prop))
 
       # Set reference category for intercept
       study_design$Z[[1]][, ref_cat_idx] <- 1
@@ -282,8 +284,15 @@ for (cam_des in 1:nrow(all_designs)) {
           D.PATH.MCMC <- NA
           SD.PATH.MCMC <- NA
         }
+      }
 
-        ################################################################################
+################################################################################
+      if (sum(encounter_data) == 0) {
+        D.REST.MCMC <- NA
+        SD.REST.MCMC <- NA
+        D.REST.MCMC.cov <- NA
+        SD.REST.MCMC.cov <- NA
+      } else {
         # REST, no covariates
         chain.REST <- fit.model.mcmc.REST(
           study_design,
@@ -316,12 +325,12 @@ for (cam_des in 1:nrow(all_designs)) {
           study_design,
           cam_design,
           cam_locs,
-          gamma_start = rep(log(mean(encounter_data)), 3),
-          kappa_start = rep(log(mean(stay_time_data,na.rm=T)), 3),
+          gamma_start = rep(log(mean(encounter_data)), 4),
+          kappa_start = rep(log(mean(stay_time_data,na.rm=T)), 4),
           gamma_prior_var = 10^4,
           kappa_prior_var = 10^4,
-          gamma_tune = c(-1, -1, -1),
-          kappa_tune = c(-1, -1, -1),
+          gamma_tune = c(-1, -1, -1, -1),
+          kappa_tune = c(-1, -1, -1, -1),
           encounter_data_in = encounter_data,
           stay_time_data_in = stay_time_data
         )
@@ -340,14 +349,12 @@ for (cam_des in 1:nrow(all_designs)) {
 
       }
 
-      ncam_temp <- cam_design$ncam
-
       D_all[[(run - 1) * 2 + 1]] <- tibble::tibble(
         iteration = run,
         Model = "PATH",
         Covariate = "Non-Covariate",
-        Est = NA, #D.PATH.MCMC,
-        SD = NA, #SD.PATH.MCMC
+        Est = D.PATH.MCMC,
+        SD = SD.PATH.MCMC
       )
 
       D_all_REST[[(run - 1) * 2 + 1]] <- tibble::tibble(
@@ -385,7 +392,7 @@ for (cam_des in 1:nrow(all_designs)) {
       D_all[[run * 2]] <- tibble::tibble(
         iteration = run,
         cam_design = cam_design$Design_name,
-        cams = ncam_temp,
+        cams = cam_design$ncam,
         Model = "IS",
         Est = IS_mean,
         SD = SE_N
