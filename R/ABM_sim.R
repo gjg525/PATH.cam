@@ -58,7 +58,7 @@ ABM_sim <- function(
   dy <- study_design$dy
   q <- study_design$q
   t_steps <- study_design$t_steps
-  speeds <- matrix(lscape_defs$Value, q^0.5, q^0.5)
+  # speeds <- matrix(lscape_defs$Value, q^0.5, q^0.5)
   group_sizes <- unlist(study_design$group_sizes)
   group_spread <- study_design$group_spread
   dt <- study_design$dt
@@ -135,13 +135,14 @@ ABM_sim <- function(
           Y.ind <- ceiling(group_Y[ci, i] * (q^0.5 / max(bounds)))
 
           # Determine movement speed in current space
-          # Note: Come back to define speeds with upper/lower bounds
-          # v <- speeds[X.ind, Y.ind]
+          tmp_speed <- lscape_defs$Value[lscape_defs$X == X.ind &
+                                           lscape_defs$Y == Y.ind]
+          # v <- tmp_speed
           v <- truncnorm::rtruncnorm(1,
                                      a = 0,
                                      b = Inf,
-                                     speeds[X.ind, Y.ind],
-                                     speeds[X.ind, Y.ind] / 10)
+                                     tmp_speed,
+                                     tmp_speed / 10)
           step.size <- v * t.step
 
           # Step length components
@@ -209,8 +210,11 @@ ABM_sim <- function(
             tx <- max(c(tx, 1))
             ty <- min(c(ty, q^0.5))
             ty <- max(c(ty, 1))
-            if (temp.X < (max(bounds)) & temp.X > (min(bounds)) &
-              temp.Y < (max(bounds)) & temp.Y > (min(bounds))
+
+            tmp_lscape_type <- lscape_defs$Speed[lscape_defs$X == tx & lscape_defs$Y == ty]
+
+            if (temp.X < max(bounds) & temp.X > min(bounds) &
+              temp.Y < max(bounds) & temp.Y > min(bounds) & tmp_lscape_type != "Water"
             ) {
               t.step <- t.step - sqrt((group_X[ci, i] - (temp.X))^2 +
                                         (group_Y[ci, i] - (temp.Y))^2) / v
@@ -228,7 +232,22 @@ ABM_sim <- function(
                 i * dt - t.step
               )
             } else {
-              if (temp.X >= (max(bounds)) || temp.X <= (min(bounds))) {
+              if (tmp_lscape_type == "Water") {
+                # Determine which side the individual crossed water boundary
+                if (r.length[int.ind, 1] == 0) {
+                  crossed_line <- "vertical"
+                } else if (r.length[int.ind, 2] == 0) {
+                  crossed_line <- "horizontal"
+                } else {
+                  crossed_line <- "diagonal or undefined"
+                }
+              } else {
+                crossed_line <- "other"
+              }
+
+              # Reflects off of vertical boundary
+              if (temp.X >= max(bounds) || temp.X <= min(bounds) ||
+                  crossed_line == "vertical") {
                 t.step <- t.step - sqrt((group_X[ci, i] - (temp.X))^2 +
                   (group_Y[ci, i] - (temp.Y))^2) / v
 
@@ -255,7 +274,9 @@ ABM_sim <- function(
                   theta_group <- theta.all[ci]
                 }
               }
-              if (temp.Y >= (max(bounds)) || temp.Y <= (min(bounds))) {
+              # Reflects off of horizontal boundary
+              if (temp.Y >= max(bounds) || temp.Y <= min(bounds) ||
+                  crossed_line == "horizontal") {
                 t.step <- t.step - sqrt((group_X[ci, i] - (temp.X))^2 +
                   (group_Y[ci, i] - (temp.Y))^2) / v
 
@@ -329,7 +350,8 @@ ABM_sim <- function(
       trav_dist = c(NA, sqrt((X[2:n()] - X[1:(n() - 1)])^2 +
         (Y[2:n()] - Y[1:(n() - 1)])^2)),
       trav_speeds = trav_dist / c(NA, t[2:n()] - t[1:(n() - 1)])
-    )
+    ) |>
+    dplyr::ungroup()
 
   # Escapee
   if (max(animalxy.all$X) > max(bounds) || min(animalxy.all$X) < min(bounds)) {
