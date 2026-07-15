@@ -66,6 +66,70 @@ plot_ABM <- function(study_design,
   g + coord_fixed()
 }
 
+#' Plot Agent-Based Model (ABM) Trajectories Over Landscape
+#'
+#' @description
+#' Generates a spatial visualization mapping simulated individual animal trajectories
+#' over a categorical landscape grid. The function aligns the index-based landscape
+#' cells with the continuous spatial coordinates of the movement paths using the
+#' defined cell size.
+#'
+#' @param study_design A list or data frame containing simulation parameters.
+#'   Must include the element \code{dx}, which represents the physical dimension
+#'   (size) of a single grid cell.
+#' @param lscape_defs A data frame or tibble defining the landscape grid.
+#'   Expected to contain columns \code{X} and \code{Y} (integer grid indices)
+#'   and \code{Speed} (a categorical variable representing habitat types such
+#'   as "Water", "Development", "Forest", or "Agriculture").
+#' @param animalxy.all A data frame or tibble containing the simulated movement
+#'   data. Expected to contain continuous \code{X} and \code{Y} spatial coordinates
+#'   and an \code{Animal_ID} column used to group individual trajectories.
+#'
+#' @return A \code{ggplot} object containing the mapped landscape base layer
+#'   and overlying movement trajectories.
+#'
+#' @importFrom ggplot2 ggplot geom_tile geom_path aes scale_fill_manual theme_minimal coord_fixed labs
+#' @export
+plot_ABM_2 = function(study_design, lscape_defs, animalxy.all) {
+  # Define cell size
+  cell_size <- study_design$dx
+
+  ggplot() +
+    geom_tile(data = lscape_defs,
+              aes(
+                x = X * cell_size - cell_size / 2,
+                y = Y * cell_size - cell_size / 2,
+                fill = Speed
+              ),
+              alpha = 0.6) +
+    geom_path(data = animalxy.all,
+              aes(x = X, y = Y, group = Animal_ID),
+              color = "black",
+              linewidth = 0.3,
+              alpha = 0.4) +
+    scale_fill_manual(
+      # values = c(
+      #   "Agriculture" = "#E6C229",
+      #   "Development" = "#D1D1D1",
+      #   "Forest"      = "#4A7C59"
+      # )
+      values = c(
+        "Water"       = "#1F78B4",  # A nice deep blue
+        "Development" = "#666666",  # Red "#E31A1C"(common for development) or use "#666666" for Grey
+        "Forest"      = "#4A7C59",  # Deep green
+        "Agriculture" = "#E6C229"   # Earthy yellow/tan
+      )
+    ) +
+    theme_minimal() +
+    coord_fixed() +
+    labs(
+      title = "Individual Trajectories Across Landscape",
+      subtitle = "Simulated movement paths over mapped grid types",
+      x = "X",
+      y = "Y",
+      fill = "Habitat Type"
+    )
+}
 #' Visualize Animal Space Use Intensity
 #'
 #' @description
