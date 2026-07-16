@@ -1,6 +1,9 @@
 library(ggplot2)
 
 tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5000NLCDclip.tif"
+tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5004NLCDclip.tif"
+tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5006NLCDclip.tif"
+tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5010NLCDclip.tif"
 
 # buildBackground <- function(parameterSet, tifFile) {
 #   # Read raster and convert to matrix matching MATLAB's orientation

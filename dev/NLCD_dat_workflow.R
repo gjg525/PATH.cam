@@ -23,16 +23,12 @@ options(ggplot2.discrete.fill = fig_colors)
 # Load NLCD data set
 tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5000NLCDclip.tif"
 
-params <- list(
-  scale_diffusion = 1
-)
-
 mu_base <- tibble::tibble(
   LandCover = c("Water", "Development", "Forest", "Agriculture"),
   Mu = c(4, 2, 0.02, 0.5),
   # speed = 4 * Mu * 900 / 30 / 30 * 8,
   # speed = c(0, 2, 0.08, 0.5) * 30, # Manually set km/hr to cell/hr
-  speed = c(0, 2, 1, 0.5) * 30, # Manually set km/hr to cell/hr
+  speed = c(0, 2, 1, 0.5) * 30, # Manually set km/hr and convert to cell/hr
   speed_km_hr = 4 * Mu * 900 / 30 / 1000
 )
 
@@ -62,8 +58,12 @@ df <- df |>
 # Run with different number of cameras
 # cam_tests <- c(25, 50, 75, 100, 125)
 # cam_tests <- c(50, 75, 100)
-cam_tests <- c(250)
+cam_tests <- c(200)
 
+tele_sample <- tibble::tibble(
+  t_sample_freq = 6 * 10,
+  ID_sample_size = 25
+)
 # Study design
 study_design <- tibble::tibble(
   q = 30^2, # Number grid cells
@@ -82,7 +82,7 @@ study_design <- tibble::tibble(
   num_runs = 10,
   n_iter = 40000,
   burn_in = 30000,
-  covariate_labels = list(c("Water", "Development", "Forest", "Agriculture"))
+  covariate_labels = list(c("Development", "Forest", "Agriculture")) # don't include restricted habitats
 )
 
 # Landscape design
@@ -92,8 +92,8 @@ lscape_design <- tibble::tibble(
   Speed_ID = c("Water", "Development", "Forest", "Agriculture"),
   # Speed_mins = c(0, 1.27, 0.12, 0.64), # Trying the sqrt of motility to start
   # Speed_maxes = c(0, 1.55, 0.155, .77)
-  Speed_mins = mu_base$speed * 0.1,
-  Speed_maxes = mu_base$speed * 1.9
+  Speed_mins = mu_base$speed * 0.1 / 30,
+  Speed_maxes = mu_base$speed * 1.9 / 30
   # Probs = c(0.1, 0.1, 0.8)
 )
 
@@ -102,7 +102,7 @@ lscape_defs <- df |>
   tibble::as_tibble() |>
   dplyr::select(X = Column, Y = Row, Speed = LandCover) |>
   dplyr::mutate(
-    Y = study_design$dx + 1 - Y
+    Y = sqrt(study_design$q) + 1 - Y
   ) |>
   dplyr::arrange(X, Y) |>
   dplyr::mutate(
@@ -147,14 +147,16 @@ for (cam_des in 1:nrow(all_designs[1,])) {
   for (cam in 1:length(cam_tests)) {
 
     # Cam designs
+    # aim for cam_A ~ 50 - 100 m^2
     cam_design <- tibble::tibble(
       ncam = cam_tests[cam],
+      snap_rate = 1 / 6, # snapshot rate (hours)
       Design_name = all_designs$Design_name[cam_des],
       Design = all_designs$Design[cam_des],
       Props = all_designs$Props[cam_des],
-      cam_length = study_design$dx * 0.1, # length of all viewshed sides
+      cam_length = 0.02, #  study_design$dx  * 0.5, # length of all viewshed sides
       cam_A = cam_length ^ 2 / 2,
-      tot_snaps = ncam * study_design$t_steps
+      tot_snaps = ncam * study_design$t_steps / snap_rate
     )
 
     # Initialize summary matrices
@@ -179,7 +181,7 @@ for (cam_des in 1:nrow(all_designs[1,])) {
       animalxy.all <- ABM_sim(study_design,
                               lscape_defs)
 
-      tele_summary <- Collect_tele_data(animalxy.all, study_design)
+      tele_summary <- Collect_tele_data(animalxy.all, study_design, tele_sample = tele_sample)
 
       # Use largest stay time as reference category
       ref_cat_idx <- which(tele_summary$stay_prop == max(tele_summary$stay_prop))
@@ -212,6 +214,7 @@ for (cam_des in 1:nrow(all_designs[1,])) {
       ))
 
       habitat_summary <- lscape_defs %>%
+        dplyr::filter(Speed != "Water") |>
         dplyr::group_by(Speed) %>%
         dplyr::summarise(
           n_lscape = dplyr::n()
@@ -242,11 +245,17 @@ for (cam_des in 1:nrow(all_designs[1,])) {
         levels = unlist(study_design$covariate_labels)
       )
 
+      seq_tbl <- tibble::tibble(
+        val = seq(1, study_design$t_steps, by = cam_design$snap_rate)
+      )
+
       count_data <- get_count_data(
         cam_locs,
         all_data$cam_captures[[run]],
         animalxy.all %>%
-          dplyr::filter(t != 0))
+          dplyr::filter(t != 0),
+        seq_tbl
+      )
 
       all_data$count_data[[run]] <- list(count_data)
 
@@ -325,12 +334,12 @@ for (cam_des in 1:nrow(all_designs[1,])) {
           study_design,
           cam_design,
           cam_locs,
-          gamma_start = rep(log(mean(encounter_data)), 4),
-          kappa_start = rep(log(mean(stay_time_data,na.rm=T)), 4),
+          gamma_start = rep(log(mean(encounter_data)), study_design$num_covariates),
+          kappa_start = rep(log(mean(stay_time_data,na.rm=T)), study_design$num_covariates),
           gamma_prior_var = 10^4,
           kappa_prior_var = 10^4,
-          gamma_tune = c(-1, -1, -1, -1),
-          kappa_tune = c(-1, -1, -1, -1),
+          gamma_tune = rep(-1, study_design$num_covariates),
+          kappa_tune = rep(-1, study_design$num_covariates),
           encounter_data_in = encounter_data,
           stay_time_data_in = stay_time_data
         )
@@ -351,6 +360,8 @@ for (cam_des in 1:nrow(all_designs[1,])) {
 
       D_all[[(run - 1) * 2 + 1]] <- tibble::tibble(
         iteration = run,
+        design = cam_design$Design_name,
+        cams = cam_design$ncam,
         Model = "PATH",
         Covariate = "Non-Covariate",
         Est = D.PATH.MCMC,
@@ -359,6 +370,8 @@ for (cam_des in 1:nrow(all_designs[1,])) {
 
       D_all_REST[[(run - 1) * 2 + 1]] <- tibble::tibble(
         iteration = run,
+        design = cam_design$Design_name,
+        cams = cam_design$ncam,
         Model = "REST",
         Covariate = "Non-Covariate",
         Est = D.REST.MCMC,
@@ -367,6 +380,8 @@ for (cam_des in 1:nrow(all_designs[1,])) {
 
       D_all_REST[[run * 2]] <- tibble::tibble(
         iteration = run,
+        design = cam_design$Design_name,
+        cams = cam_design$ncam,
         Model = "REST",
         Covariate = "Covariate",
         Est = D.REST.MCMC.cov,
@@ -375,8 +390,9 @@ for (cam_des in 1:nrow(all_designs[1,])) {
 
       ################################################################################
       # IS method
-      IS_mean <- sum(count_data$count) / study_design$t_steps / cam_design$ncam /
-        cam_design$cam_A * study_design$tot_A
+      tot_snaps <- study_design$t_steps / cam_design$snap_rate * cam_design$ncam
+      IS_mean <- sum(count_data$count) * study_design$tot_A /
+        (tot_snaps * cam_design$cam_A)
 
       M <- cam_design$ncam
       J <- study_design$t_steps
@@ -391,9 +407,10 @@ for (cam_des in 1:nrow(all_designs[1,])) {
 
       D_all[[run * 2]] <- tibble::tibble(
         iteration = run,
-        cam_design = cam_design$Design_name,
+        design = cam_design$Design_name,
         cams = cam_design$ncam,
         Model = "IS",
+        Covariate = "Non-Covariate",
         Est = IS_mean,
         SD = SE_N
         # all_results = list(chain.PR.habitat)
@@ -439,7 +456,8 @@ for (cam_des in 1:nrow(all_designs[1,])) {
   }
 }
 
-
+D_all <- dplyr::bind_rows(D_all) |>
+  dplyr::bind_rows(D_all_REST)
 # # Omit all_results column (too much data)
 # D_all <- D_all %>%
 #   dplyr::select(-all_results)
