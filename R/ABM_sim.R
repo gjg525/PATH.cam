@@ -341,8 +341,18 @@ ABM_sim <- function(
   animalxy.all <- animalxy.all |>
     dplyr::ungroup() |>
     dplyr::mutate(
-      lscape_index = ceiling(animalxy.all$X / dx) +
-        floor(animalxy.all$Y / dx) * q^0.5,
+      X_idx = ceiling(X / dx),
+      Y_idx = ceiling(Y / dy)
+    ) |>
+    dplyr::left_join(
+      lscape_defs |>
+        dplyr::select(lscape_index = Index, X_idx = X, Y_idx = Y),
+      by = dplyr::join_by(X_idx, Y_idx)
+    ) |>
+    dplyr::select(-c(X_idx, Y_idx)) |>
+    dplyr::mutate(
+      # lscape_index = ceiling(animalxy.all$X / dx) +
+      #   floor(animalxy.all$Y / dx) * q^0.5,
       ii = 1:nrow(animalxy.all)
   ) |>
     dplyr::group_by(Animal_ID) |>
