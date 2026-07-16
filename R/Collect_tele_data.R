@@ -32,10 +32,18 @@
 #'
 #' @export
 #'
-Collect_tele_data = function(animalxy.all, study_design, grouping = "Speed") {
+Collect_tele_data = function(animalxy.all, study_design, grouping = "Speed", tele_sample = NULL) {
+  if (is.null(tele_sample)) {
+    t_sample <- seq(1, study_design$t_steps, study_design$dt)
+    ID_sample <- unique(animalxy.all$Animal_ID)
+  } else {
+    t_sample <- seq(1, study_design$t_steps, tele_sample$t_sample_freq)
+    ID_sample <- sample(unique(animalxy.all$Animal_ID), tele_sample$ID_sample_size)
+  }
+
   # Calculate mean residence indices
   cell_captures_tele <- animalxy.all %>%
-    dplyr::filter(t %in% seq(1, study_design$t_steps, study_design$dt)) %>%
+    dplyr::filter(t %in% t_sample & Animal_ID %in% ID_sample) %>%
     dplyr::rename(Speed = lscape_type) %>%
     dplyr::group_by(!!sym(grouping)) %>%
     dplyr::count() %>%
