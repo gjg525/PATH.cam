@@ -106,7 +106,7 @@ fit.model.mcmc.PATH <- function(study_design,
   stay_prop <- exp(kappa[1, ])
 
   u <- d * habitat_summary$n_lscape / stay_prop *
-    habitat_summary$prop_cams / (cam_design$cam_A * study_design$t_steps)
+    habitat_summary$prop_cams / (cam_design$cam_A * t_steps / cam_design$snap_rate)
 
   tot_u <- sum(u)
 
@@ -182,7 +182,7 @@ fit.model.mcmc.PATH <- function(study_design,
     stay_prop <- exp(kappa[i + 1, ])
 
     u <- d * habitat_summary$n_lscape / stay_prop *
-      habitat_summary$prop_cams / (cam_design$cam_A * study_design$t_steps)
+      habitat_summary$prop_cams / (cam_design$cam_A * t_steps / cam_design$snap_rate)
 
     tot_u[i + 1] <- sum(u)
 
