@@ -64,7 +64,7 @@ cam_tests <- c(100)
 # tele_sample <- NULL
 tele_sample <- tibble::tibble(
   t_sample_freq = 6,
-  ID_sample_size = 25
+  ID_sample_size = 5
 )
 
 # Study design
@@ -77,7 +77,7 @@ study_design <- tibble::tibble(
   t_censor = 2,
   bounds = list(c(0, dx * q ^ 0.5)), # Sampling area boundaries
   tot_A = (bounds[[1]][2] - bounds[[1]][1])^2,
-  num_groups = 25,
+  num_groups = 10,
   group_sizes = list(rep(1, num_groups)),
   group_spread = 0, # Tightness of grouping behavior (relative to grid size)
   h_range_strength = list(stats::runif(num_groups, 0.0005, 0.01)),
@@ -431,22 +431,22 @@ for (cam_des in 1:nrow(all_designs)) {
     D_all <- dplyr::bind_rows(D_all) |>
       dplyr::bind_rows(D_all_REST)
 
-    # save_results <- list(
-    #   study_design,
-    #   cam_design,
-    #   lscape_design,
-    #   all_data,
-    #   D_all
-    # )
-    #
-    # save(save_results, file = paste0(sim_dir,
-    #                                  cam_design$Design_name,
-    #                                  "_",
-    #                                  cam_design$ncam,
-    #                                  "_cam_NLCD.RData")
-    # )
-    #
-    # rm(save_results, all_data, D_all)
+    save_results <- list(
+      study_design,
+      cam_design,
+      lscape_design,
+      all_data,
+      D_all
+    )
+
+    save(save_results, file = paste0(sim_dir,
+                                     cam_design$Design_name,
+                                     "_",
+                                     cam_design$ncam,
+                                     "_cam_NLCD.RData")
+    )
+
+    rm(save_results, all_data, D_all)
   }
 }
 
@@ -480,10 +480,10 @@ plot_multirun_sds(D_all %>%
 #                    dplyr::filter(is.finite(Est)))
 # plot_multirun_hist(D_all)
 
-plot_ABM(study_design,
-         cam_design,
-         cam_locs,
-         animalxy.all)
+# plot_ABM(study_design,
+#          cam_design,
+#          cam_locs,
+#          animalxy.all)
 plot_ABM_2(study_design, lscape_defs, animalxy.all)
 # plot_ABM_2(study_design, lscape_defs, animalxy.all |> dplyr::filter(Animal_ID == 1))
 plot_space_use(study_design,
