@@ -103,8 +103,10 @@ sample_speeds <- function(cam.dist.prop = NULL, lscape_speeds) {
   } else{
     ps <- round(cam.dist.prop$ncam * unlist(cam.dist.prop$Props))
 
+    speed_categories <- sort(unique(lscape_speeds$Speed))
+
     # Dynamically adjust the last category so the total perfectly matches ncam
-    n_cats <- length(lscape_speeds$Speed)
+    n_cats <- length(speed_categories)
     ps[n_cats] <- cam.dist.prop$ncam - sum(ps[-n_cats])
 
     # Use Map to iterate over categories and sample sizes simultaneously
@@ -172,46 +174,95 @@ place_animals <- function(study_design, lscape_defs) {
   group_spread <- study_design$group_spread
   tot_animals <- study_design$tot_animals
 
-  # Note: Allow for custom placements
-  animal.inds.0 <- tibble::tibble(
-    IC_index = sample(sample_idx, num_groups)
-  ) |>
-    dplyr::mutate(
-      group_ID = 1:num_groups,
-      group_size = unlist(group_sizes)
-    ) |>
-    dplyr::left_join(
-      lscape_defs |>
-        dplyr::select(IC_index = Index, X_ind = X, Y_ind = Y),
-      by = dplyr::join_by(IC_index)
+  if (!is.null(study_design$Initial_placement)) {
+    prop_df <- tibble::tibble(
+      Speed  = unlist(study_design$covariate_labels),
+      prop_ic = unlist(study_design$Initial_placement)
     )
 
-  # Initial animal placement
-  animalxy.0 <- animal.inds.0 |>
-    dplyr::group_by(group_ID) |>
-    dplyr::summarise(
-      X = truncnorm::rtruncnorm(group_size,
-        a = 0,
-        b = q^0.5,
-        X_ind - 0.5,
-        group_spread
-      ),
-      Y = truncnorm::rtruncnorm(group_size,
-        a = 0,
-        b = q^0.5,
-        Y_ind - 0.5,
-        group_spread
-      ),
-      .groups = "drop"
-    ) |>
-    dplyr::mutate(Animal_ID = 1:tot_animals)
+    # Join proportions to landscape grid & calculate per-cell weight
+    lscape_weighted <- lscape_defs |>
+      dplyr::left_join(prop_df, by = "Speed") |>
+      dplyr::mutate(prop_ic = dplyr::coalesce(prop_ic, 0)) |>
+      dplyr::group_by(Speed) |>
+      dplyr::mutate(
+        n_cells = dplyr::n(),
+        cell_weight = dplyr::if_else(n_cells > 0, prop_ic / n_cells, 0)
+      ) |>
+      dplyr::ungroup()
 
-  # Convert to x-y coords
-  animalxy.0 <- animalxy.0 |>
-    dplyr::mutate(
-      X = X * study_design$dx,
-      Y = Y * study_design$dy
-    )
+    # Sample initial group centers weighted by habitat target proportions
+    animal.inds.0 <- lscape_weighted |>
+      dplyr::slice_sample(n = num_groups, weight_by = cell_weight, replace = TRUE) |>
+      dplyr::mutate(
+        group_ID = dplyr::row_number(),
+        group_size = unlist(group_sizes)
+      ) |>
+      dplyr::select(IC_index = Index, group_ID, group_size, X_ind = X, Y_ind = Y)
+
+    # Truncated normal jitter around group centers
+    animalxy.0 <- animal.inds.0 |>
+      dplyr::group_by(group_ID) |>
+      dplyr::summarise(
+        X = truncnorm::rtruncnorm(
+          group_size,
+          a = 0,
+          b = q^0.5,
+          X_ind - 0.5,
+          group_spread
+        ),
+        Y = truncnorm::rtruncnorm(
+          group_size,
+          a = 0,
+          b = q^0.5,
+          Y_ind - 0.5,
+          group_spread
+        ),
+        .groups = "drop"
+      ) |>
+      dplyr::mutate(Animal_ID = 1:tot_animals) |>
+      dplyr::mutate(
+        X = X * study_design$dx,
+        Y = Y * study_design$dy
+      )
+  } else {
+    animal.inds.0 <- tibble::tibble(
+      IC_index = sample(sample_idx, num_groups)
+    ) |>
+      dplyr::mutate(
+        group_ID = 1:num_groups,
+        group_size = unlist(group_sizes)
+      ) |>
+      dplyr::left_join(
+        lscape_defs |>
+          dplyr::select(IC_index = Index, X_ind = X, Y_ind = Y),
+        by = dplyr::join_by(IC_index)
+      )
+
+    # Initial animal placement
+    animalxy.0 <- animal.inds.0 |>
+      dplyr::group_by(group_ID) |>
+      dplyr::summarise(
+        X = truncnorm::rtruncnorm(group_size,
+          a = 0,
+          b = q^0.5,
+          X_ind - 0.5,
+          group_spread
+        ),
+        Y = truncnorm::rtruncnorm(group_size,
+          a = 0,
+          b = q^0.5,
+          Y_ind - 0.5,
+          group_spread
+        ),
+        .groups = "drop"
+      ) |>
+      dplyr::mutate(Animal_ID = 1:tot_animals) |>
+      dplyr::mutate(
+        X = X * study_design$dx,
+        Y = Y * study_design$dy
+      )
+  }
 
   return(animalxy.0)
 }
