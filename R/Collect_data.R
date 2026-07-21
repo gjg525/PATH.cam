@@ -29,11 +29,11 @@ get_cam_captures <- function(animalxy, cam_locs, study_design) {
     dplyr::ungroup() |>
     dplyr::filter(lscape_index %in% cam_locs$lscape_index) |>
     dplyr::mutate(pass_i = cumsum(c(1, (abs(ii[-n()] - ii[-1]) > 1) |
-      (abs(lscape_index[-n()] - lscape_index[-1]) > 0)))) |>
+                                      (abs(lscape_index[-n()] - lscape_index[-1]) > 0)))) |>
     dplyr::group_by(pass_i) |>
     dplyr::mutate(next_i = ifelse(max(t) == t_steps * dt,
-      max(ii),
-      max(ii) + 1
+                                  max(ii),
+                                  max(ii) + 1
     )) |>
     dplyr::ungroup()
 
@@ -44,7 +44,7 @@ get_cam_captures <- function(animalxy, cam_locs, study_design) {
         dplyr::ungroup() |>
         dplyr::filter(ii %in% unique(cell_captures$next_i)) |>
         dplyr::mutate(pass_i = unique(cell_captures$pass_i))
-      ) |>
+    ) |>
     dplyr::arrange(ii) |>
     dplyr::select(-next_i)
 
@@ -78,8 +78,8 @@ get_cam_captures <- function(animalxy, cam_locs, study_design) {
         cam_intersects = list(
           calc_intersects(
             matrix(unlist(xy_index),
-              nrow = length(unlist(xy_index)) / 2,
-              ncol = 2
+                   nrow = length(unlist(xy_index)) / 2,
+                   ncol = 2
             ),
             cbind(X, Y),
             trav_speeds,

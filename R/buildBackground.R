@@ -1,4 +1,4 @@
-buildBackground <- function(parameterSet, tifFile) {
+buildBackground <- function(parameterSet, tifFile, custom_tiles = NULL) {
   # Read raster and convert to matrix matching MATLAB's orientation
   r <- terra::rast(tifFile)
   AA <- terra::as.matrix(r, wide = TRUE)
@@ -7,7 +7,13 @@ buildBackground <- function(parameterSet, tifFile) {
   BB <- AA[nrow(AA):1, ]
 
   # Background <- BB[331:362, 548:ncol(BB)]
-  Background <- BB[333:362, 548:(ncol(BB) - 2)]
+  if (is.null(custom_tiles)) {
+    Background <- BB[333:362, (ncol(BB) - 31):(ncol(BB) - 2)]
+    # Background <- BB
+  } else {
+    Background <- BB[custom_tiles$x[[1]], custom_tiles$y[[1]]]
+  }
+  # Background <- BB
 
   water <- 11
   development <- c(21, 22, 23, 24)

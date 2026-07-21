@@ -1,10 +1,95 @@
 library(ggplot2)
 
-tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5000NLCDclip.tif"
-tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5004NLCDclip.tif"
-tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5006NLCDclip.tif"
-tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5010NLCDclip.tif"
+# tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5000NLCDclip.tif"
+# tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5004NLCDclip.tif"
+# tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5006NLCDclip.tif"
+# tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5010NLCDclip.tif"
 
+tif_files <- c("G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5000NLCDclip.tif",
+               "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5004NLCDclip.tif",
+               "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5006NLCDclip.tif",
+               "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5010NLCDclip.tif")
+
+mu <- c(4, 2, 0.02, 0.5)
+
+# # custom tile for tif 4
+# custom_tiles <- tibble::tibble(
+#   x = list(195:225),
+#   y = list(125:155)
+# )
+# custom_tiles <- tibble::tibble(
+#   x = list(510:540),
+#   y = list(385:415)
+# )
+custom_tiles <- tibble::tibble(
+  x = list(110:140),
+  y = list(300:330)
+)
+# # custom tile for tif 1
+# custom_tiles <- tibble::tibble(
+#   x = list(238:268),
+#   y = list(29:59)
+# )
+# custom_tiles <- NULL
+
+for (tt in 4) { #:length(tif_files)) {
+  # Build Background
+  bg_info <- buildBackground(mu, tifFile = tif_files[tt], custom_tiles)
+
+  # Plot
+  # Convert the matrix to a long-format data frame
+  df <- reshape2::melt(bg_info$Landscape)
+  colnames(df) <- c("Row", "Column", "LandCover")
+
+  # Convert the numeric values (1-4) into categorical factors with labels
+  df$LandCover <- factor(df$LandCover,
+                         levels = c(1, 2, 3, 4),
+                         labels = c("Water", "Development", "Forest", "Agriculture"))
+
+  landscape_plot <- ggplot(df, aes(x = Column, y = Row, fill = LandCover)) +
+    geom_raster() +
+    # geom_tile(color = "black", linewidth = 0.2) +
+    scale_fill_manual(
+      values = c(
+        "Water"       = "#1F78B4",  # A nice deep blue
+        "Development" = "#E31A1C",  # Red (common for development) or use "#666666" for Grey
+        "Forest"      = "#33A02C",  # Deep green
+        "Agriculture" = "#FDBF6F"   # Earthy yellow/tan
+      ),
+      # values = c(
+      #   "Water"       = "#FFFFFF",  # A nice deep blue
+      #   "Development" = "#AAAAAA",  # Red (common for development) or use "#666666" for Grey
+      #   "Forest"      = "#555555",  # Deep green
+      #   "Agriculture" = "#000000"   # Earthy yellow/tan
+      # ),
+      drop = FALSE, # Ensures all categories appear in the legend even if 0 pixels exist
+      name = "Land Cover Type"
+    ) +
+    # Matrices plot from bottom-up in ggplot, so we reverse the Y-axis to match your matrix view
+    scale_y_reverse() +
+    # Ensure the grid cells are perfectly square
+    coord_fixed() +
+    # Add titles (optional for scientific papers, often handled in the caption)
+    labs(
+      x = "Easting (Grid Columns)",
+      y = "Northing (Grid Rows)"
+    ) +
+    # Apply a clean, minimalist theme suitable for publications
+    theme_minimal(base_size = 14) +
+    theme(
+      panel.grid.major = element_blank(), # Remove grid lines
+      panel.grid.minor = element_blank(),
+      panel.border = element_rect(color = "black", fill = NA, size = 0.5), # Add a neat bounding box
+      axis.text = element_blank(),  # Remove axis numbers (optional, remove if you want coordinates)
+      axis.ticks = element_blank(), # Remove axis ticks
+      legend.position = "right",
+      legend.title = element_text(face = "bold"),
+      legend.key = element_rect(color = "black", size = 0.2) # Add thin borders around legend keys
+    )
+
+  # View the plot
+  print(landscape_plot)
+}
 # buildBackground <- function(parameterSet, tifFile) {
 #   # Read raster and convert to matrix matching MATLAB's orientation
 #   r <- terra::rast(tifFile)
