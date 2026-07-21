@@ -1,8 +1,5 @@
 # TODO:
-#  - Get movement speeds for different habitat types from Pop.
-#  - Create custom landscape with the different movement speeds
-#  - Create reflective bound for water area
-#  - Run PATH, IS, and REST random, then PATH and REST with full concentration in slow habitat
+#  - Run PATH, IS, and REST random, then PATH and REST with full and 80% concentration in high-dens habitat
 
 library(tidyverse)
 library(RColorBrewer)
@@ -11,8 +8,7 @@ library(gridExtra)
 library(doParallel)
 devtools::load_all()
 
-sim_dir <- "G:/My Drive/Missoula_postdoc/PATH_model/sim_results/"
-sim_dir_REST <- "G:/My Drive/Missoula_postdoc/PATH_model/sim_results_REST/"
+sim_dir <- "G:/My Drive/Missoula_postdoc/PATH_model/sim_results_NLCD/"
 
 # Initializations
 fig_colors <- c("#2ca25f", "#fc8d59", "#67a9cf", "#f768a1", "#bae4b3", "#fed98e")
@@ -21,26 +17,31 @@ options(ggplot2.discrete.fill = fig_colors)
 
 ################################################################################
 # Load NLCD data set
-tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5000NLCDclip.tif"
+# tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5000NLCDclip.tif"
+tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5010NLCDclip.tif"
 
 mu_base <- tibble::tibble(
   LandCover = c("Water", "Development", "Forest", "Agriculture"),
   Mu = c(4, 2, 0.02, 0.5),
   # speed = 4 * Mu * 900 / 30 / 30 * 8,
   # speed = c(0, 2, 0.08, 0.5) * 30, # Manually set km/hr to cell/hr
-  speed = c(0, 2, 1, 0.5) * 30, # Manually set km/hr and convert to cell/hr
+  speed = c(0, 2, 0.5, 0.3) * 30, # Manually set km/hr and convert to cell/hr
   speed_km_hr = 4 * Mu * 900 / 30 / 1000
 )
 
-bg_info <- buildBackground(mu_base$Mu, tifFile = tif_filename)
+custom_tiles <- tibble::tibble(
+  x = list(111:140),
+  y = list(301:330)
+)
+bg_info <- buildBackground(mu_base$Mu, tifFile = tif_filename, custom_tiles)
 
 # Plot
 # Convert the matrix to a long-format data frame
 df <- reshape2::melt(bg_info$Landscape)
 colnames(df) <- c("Row", "Column", "LandCover")
 
-# Reassign ag to water in isolated section
-df$LandCover[18] <- 1
+# # Reassign ag to water in isolated section
+# df$LandCover[18] <- 1
 # Convert the numeric values (1-4) into categorical factors with labels
 df$LandCover <- factor(df$LandCover,
                        levels = c(1, 2, 3, 4),
@@ -58,12 +59,14 @@ df <- df |>
 # Run with different number of cameras
 # cam_tests <- c(25, 50, 75, 100, 125)
 # cam_tests <- c(50, 75, 100)
-cam_tests <- c(200)
+cam_tests <- c(100)
 
+# tele_sample <- NULL
 tele_sample <- tibble::tibble(
-  t_sample_freq = 6 * 10,
+  t_sample_freq = 6,
   ID_sample_size = 25
 )
+
 # Study design
 study_design <- tibble::tibble(
   q = 30^2, # Number grid cells
@@ -74,15 +77,18 @@ study_design <- tibble::tibble(
   t_censor = 2,
   bounds = list(c(0, dx * q ^ 0.5)), # Sampling area boundaries
   tot_A = (bounds[[1]][2] - bounds[[1]][1])^2,
-  num_groups = 100,
+  num_groups = 25,
   group_sizes = list(rep(1, num_groups)),
   group_spread = 0, # Tightness of grouping behavior (relative to grid size)
+  h_range_strength = list(stats::runif(num_groups, 0.0005, 0.01)),
   tot_animals = sum(unlist(group_sizes)),
+  # Initial_placement = list(c(0.8, 0, 0.2)),
+  Initial_placement = list(c(1, 0, 0)),
   # MCMC parms
   num_runs = 10,
   n_iter = 40000,
   burn_in = 30000,
-  covariate_labels = list(c("Development", "Forest", "Agriculture")) # don't include restricted habitats
+  covariate_labels = list(c("Agriculture", "Development", "Forest")) # don't include restricted habitats
 )
 
 # Landscape design
@@ -92,10 +98,11 @@ lscape_design <- tibble::tibble(
   Speed_ID = c("Water", "Development", "Forest", "Agriculture"),
   # Speed_mins = c(0, 1.27, 0.12, 0.64), # Trying the sqrt of motility to start
   # Speed_maxes = c(0, 1.55, 0.155, .77)
-  Speed_mins = mu_base$speed * 0.1 / 30,
-  Speed_maxes = mu_base$speed * 1.9 / 30
+  Speed_mins = mu_base$speed * 0.5,
+  Speed_maxes = mu_base$speed * 1.5
   # Probs = c(0.1, 0.1, 0.8)
-)
+) |>
+  dplyr::arrange(Speed_ID)
 
 # Define lscape for camera simulation
 lscape_defs <- df |>
@@ -135,15 +142,16 @@ study_design <- study_design %>%
   )
 
 all_designs <- tibble::tibble(
-  Design_name = c("Random", "Slow_bias"),
-  Design =c("Random", "Bias"),
+  Design_name = c("Random", "Ag_bias", "Ag_all"),
+  Design =c("Random", "Bias", "Bias"),
   Props = c(
-    list(c(1, 1, 1, 1)),
-    list(c(0, 1, 0, 0))
+    list(c(1, 1, 1)),
+    list(c(0.8, 0, 0)),
+    list(c(1, 0, 0))
   )
 )
 
-for (cam_des in 1:nrow(all_designs[1,])) {
+for (cam_des in 1:nrow(all_designs)) {
   for (cam in 1:length(cam_tests)) {
 
     # Cam designs
@@ -154,7 +162,7 @@ for (cam_des in 1:nrow(all_designs[1,])) {
       Design_name = all_designs$Design_name[cam_des],
       Design = all_designs$Design[cam_des],
       Props = all_designs$Props[cam_des],
-      cam_length = 0.02, #  study_design$dx  * 0.5, # length of all viewshed sides
+      cam_length = 0.02 * 30, #  study_design$dx  * 0.5, # length of all viewshed sides
       cam_A = cam_length ^ 2 / 2,
       tot_snaps = ncam * study_design$t_steps / snap_rate
     )
@@ -181,19 +189,20 @@ for (cam_des in 1:nrow(all_designs[1,])) {
       animalxy.all <- ABM_sim(study_design,
                               lscape_defs)
 
-      tele_summary <- Collect_tele_data(animalxy.all, study_design, tele_sample = tele_sample)
+      tele_summary <- Collect_tele_data(animalxy.all, study_design, tele_sample = tele_sample) |>
+        dplyr::arrange(Speed)
 
       # Use largest stay time as reference category
-      ref_cat_idx <- which(tele_summary$stay_prop == max(tele_summary$stay_prop))
+      ref_cat_idx <- which(tele_summary$stay_prop == min(tele_summary$stay_prop))
 
       # Set reference category for intercept
       study_design$Z[[1]][, ref_cat_idx] <- 1
 
       # Subtract reference category from stay time proportion
-      prop_adjust <- tele_summary$stay_prop /
-        tele_summary$stay_prop[ref_cat_idx]
-      prop_adjust[ref_cat_idx] <- tele_summary$stay_prop[ref_cat_idx]
-      kappa.prior.mu.adj <- log(prop_adjust)
+      # prop_adjust <- tele_summary$stay_prop /
+      #   tele_summary$stay_prop[ref_cat_idx]
+      # prop_adjust[ref_cat_idx] <- tele_summary$stay_prop[ref_cat_idx]
+      # kappa.prior.mu.adj <- log(prop_adjust)
       kappa.prior.mu <- log(tele_summary$stay_prop)
       kappa.prior.var <- tele_summary$stay_sd^2 # stay_time_summary$cell_sd ^ 2
 
@@ -217,7 +226,7 @@ for (cam_des in 1:nrow(all_designs[1,])) {
         dplyr::filter(Speed != "Water") |>
         dplyr::group_by(Speed) %>%
         dplyr::summarise(
-          n_lscape = dplyr::n()
+          n_lscape = dplyr::n() * study_design$dx * study_design$dy # Area of each habitat
         ) %>%
         dplyr::ungroup() %>%
         dplyr::left_join(
@@ -238,7 +247,8 @@ for (cam_des in 1:nrow(all_designs[1,])) {
           d_coeff = n_lscape * prop_cams / stay_prop / (cam_design$cam_A * study_design$t_steps)
         ) %>%
         replace(is.na(.), 0) %>%
-        dplyr::select(Speed, n_lscape, prop_cams, d_coeff)
+        dplyr::select(Speed, n_lscape, prop_cams, d_coeff) |>
+        dplyr::arrange(Speed)
 
       habitat_summary$Speed <- factor(
         habitat_summary$Speed,
@@ -418,8 +428,10 @@ for (cam_des in 1:nrow(all_designs[1,])) {
 
     }
 
+    D_all <- dplyr::bind_rows(D_all) |>
+      dplyr::bind_rows(D_all_REST)
+
     # save_results <- list(
-    #   # save_animal_data,
     #   study_design,
     #   cam_design,
     #   lscape_design,
@@ -431,33 +443,15 @@ for (cam_des in 1:nrow(all_designs[1,])) {
     #                                  cam_design$Design_name,
     #                                  "_",
     #                                  cam_design$ncam,
-    #                                  "_cam.RData")
+    #                                  "_cam_NLCD.RData")
     # )
-
+    #
     # rm(save_results, all_data, D_all)
-    # rm(all_data, D_all)
-    #
-    # save_results_REST <- list(
-    #   study_design,
-    #   cam_design,
-    #   lscape_design,
-    #   D_all_REST
-    # )
-    #
-    # save(save_results_REST, file = paste0(sim_dir_REST,
-    #                                       cam_design$Design_name,
-    #                                       "_",
-    #                                       cam_design$ncam,
-    #                                       "_cam_REST.RData")
-    # )
-    #
-    # rm(save_results_REST, D_all_REST)
-    #
   }
 }
 
-D_all <- dplyr::bind_rows(D_all) |>
-  dplyr::bind_rows(D_all_REST)
+# D_all <- dplyr::bind_rows(D_all) |>
+#   dplyr::bind_rows(D_all_REST)
 # # Omit all_results column (too much data)
 # D_all <- D_all %>%
 #   dplyr::select(-all_results)
@@ -490,8 +484,8 @@ plot_ABM(study_design,
          cam_design,
          cam_locs,
          animalxy.all)
-# plot_ABM_2(study_design, lscape_defs, animalxy.all)
-plot_ABM_2(study_design, lscape_defs, animalxy.all |> dplyr::filter(Animal_ID == 1))
+plot_ABM_2(study_design, lscape_defs, animalxy.all)
+# plot_ABM_2(study_design, lscape_defs, animalxy.all |> dplyr::filter(Animal_ID == 1))
 plot_space_use(study_design,
                animalxy.all)
 #

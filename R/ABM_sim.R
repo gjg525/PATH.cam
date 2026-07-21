@@ -63,6 +63,7 @@ ABM_sim <- function(
   group_spread <- study_design$group_spread
   dt <- study_design$dt
   bounds <- unlist(study_design$bounds)
+  h_range_strength <- unlist(study_design$h_range_strength)
 
   if (is.null(animalxy.0)) {
     # Place animals on landscape
@@ -98,6 +99,9 @@ ABM_sim <- function(
       dplyr::filter(group_ID == nc) |>
       dplyr::pull(activity_mat)
 
+    # Define home range center as anima's starting point
+    h_range_center <- c(group.par$X, group.par$Y)
+
     # Define group turning angle
     theta_group <- runif(1, 0, 2 * pi)
 
@@ -118,7 +122,7 @@ ABM_sim <- function(
       )
 
       # Define turning angles for all individuals
-      theta.all <- Rfast::rvonmises(group_size, theta_group, 20)
+      theta.all <- theta_group
 
       # Loop through all individuals in group
       for (ci in 1:group_size) {
@@ -144,6 +148,45 @@ ABM_sim <- function(
                                      tmp_speed,
                                      tmp_speed / 10)
           step.size <- v * t.step
+
+          if (!is.null(h_range_strength)) {
+            # Calculate distance to the home range center
+            dist_to_center <- sqrt(
+              (h_range_center[1] - group_X[ci, i])^2 +
+                (h_range_center[2] - group_Y[ci, i])^2
+            )
+
+            # Scale the pull strength based on distance
+            dynamic_strength <- h_range_strength[ci] * dist_to_center
+
+            # Calculate angle from individual to home range center
+            theta_h <- atan2(
+              h_range_center[2] - group_Y[ci, i],
+              h_range_center[1] - group_X[ci, i]
+            ) %% (2 * pi)
+
+            # Convert the CURRENT angle (Group/Landscape) to a Vector
+            v1_x <- cos(theta.all[ci])
+            v1_y <- sin(theta.all[ci])
+
+            # Convert Home Range angle to a Vector
+            v2_x <- cos(theta_h) * dynamic_strength
+            v2_y <- sin(theta_h) * dynamic_strength
+
+            # Add Vectors to get the new Mean Direction
+            avg_x <- v1_x + v2_x
+            avg_y <- v1_y + v2_y
+
+            # Convert back to an angle (Mean Direction)
+            mean_theta <- atan2(avg_y, avg_x) %% (2 * pi)
+
+            # Use individual's direction to determine direction
+            resultant_length <- sqrt(avg_x^2 + avg_y^2)
+
+            # Sample from Von Mises using weighted mean direction
+            theta.all[ci] <- Rfast::rvonmises(1, mean_theta, resultant_length)
+
+          }
 
           # Step length components
           dX <- step.size * cos(as.numeric(theta.all[ci]))
