@@ -275,8 +275,8 @@ for (cam_des in 1:nrow(all_designs)) {
 
       # Run models only if any data points were collected
       if (sum(count_data$count) == 0) {
-        D.PR.MCMC.habitat <- NA
-        SD.PR.MCMC.habitat <- NA
+        D.PATH.MCMC <- NA
+        SD.PATH.MCMC <- NA
       } else {
         chain.PATH <- fit.model.mcmc.PATH(
           study_design = study_design,
@@ -423,7 +423,6 @@ for (cam_des in 1:nrow(all_designs)) {
         Covariate = "Non-Covariate",
         Est = IS_mean,
         SD = SE_N
-        # all_results = list(chain.PR.habitat)
       )
 
     }
