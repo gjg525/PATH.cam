@@ -1,6 +1,6 @@
 library(dplyr)
 library(ggplot2)
-tot_animals <- 100
+tot_animals <- 10
 
 sim_dir <- "G:/My Drive/Missoula_postdoc/PATH_model/sim_results_NLCD/"
 fig_dir <- "G:/My Drive/Missoula_postdoc/PATH_model/imgs/"
@@ -67,7 +67,15 @@ load(paste0(
 )
 
 D_all <- D_all_NLCD %>%
-  dplyr::filter(Est < 250)# %>%
+  dplyr::filter(Est < 250) |>
+  dplyr::mutate(
+    Model = ifelse(
+      Covariate == "Covariate",
+      paste(Model, Covariate),
+      Model
+    )
+  )
+    # %>%
   # dplyr::mutate(
   #   SampDesign = dplyr::case_when(
   #     SampDesign == "slow_cam" ~ "80% High",
@@ -86,9 +94,8 @@ D_all <- D_all_NLCD %>%
 #   levels = c("Random", "80% Low", "100% Low", "80% Moderate", "100% Moderate",
 #              "80% High", "100% High")
 # )
-tot_animals <- 100
 IS_random <- D_all |>
-  dplyr::filter(Model == "IS" & SampDesign == "Random") |>
+  dplyr::filter(Model == "IS" & SampDesign == "Random_cam") |>
   dplyr::summarise(
     Mean_MAE = mean(abs(tot_animals - Est), na.rm = T),
     Mean_Est = mean(Est, na.rm = T),
@@ -97,7 +104,7 @@ IS_random <- D_all |>
 
 # Random
 D_all %>%
-  dplyr::filter(SampDesign == "Random") %>%
+  dplyr::filter(SampDesign == "Random_cam") %>%
   ggplot2::ggplot(ggplot2::aes(x = Model, y = Est, fill = Model)) +
   ggplot2::geom_boxplot(lwd = 0.5, fatten = .5, outlier.shape = NA) +
   ggplot2::geom_hline(yintercept=tot_animals, linetype="dashed", size = 0.7) +
@@ -137,7 +144,7 @@ D_all %>%
 # )
 
 D_all %>%
-  dplyr::filter(SampDesign == "Random") %>%
+  dplyr::filter(SampDesign == "Random_cam") %>%
   ggplot2::ggplot(ggplot2::aes(x = Model, y = SD, fill = Model)) +
   ggplot2::geom_boxplot(lwd = 0.5, fatten = .5, outlier.shape = NA) +
   ggplot2::labs(x = "Model",
@@ -265,6 +272,7 @@ D_all_separated %>%
   ggplot2::geom_hline(yintercept=IS_random$Mean_var, linetype="dashed", size = 0.7) +
   ggplot2::labs(x = "Sampling Bias",
                 y = "Posterior Variance") +
+  ggplot2::scale_y_continuous(limits = c(0, 400)) +
   ggplot2::facet_grid(~ SampDesign) #+ #, switch = "x") +
   # ggplot2::guides(
   #   fill = ggplot2::guide_legend(

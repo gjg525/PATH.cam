@@ -25,7 +25,7 @@ mu_base <- tibble::tibble(
   Mu = c(4, 2, 0.02, 0.5),
   # speed = 4 * Mu * 900 / 30 / 30 * 8,
   # speed = c(0, 2, 0.08, 0.5) * 30, # Manually set km/hr to cell/hr
-  speed = c(0, 2, 0.5, 0.3) * 30, # Manually set km/hr and convert to cell/hr
+  speed = c(0, 1.5, 0.7, 0.3) * 30, # Manually set km/hr and convert to cell/hr
   speed_km_hr = 4 * Mu * 900 / 30 / 1000
 )
 
@@ -82,10 +82,10 @@ study_design <- tibble::tibble(
   group_spread = 0, # Tightness of grouping behavior (relative to grid size)
   h_range_strength = list(stats::runif(num_groups, 0.0005, 0.01)),
   tot_animals = sum(unlist(group_sizes)),
-  # Initial_placement = list(c(0.8, 0, 0.2)),
-  Initial_placement = list(c(1, 0, 0)),
+  Initial_placement = list(c(0.8, 0, 0.2)),
+  # Initial_placement = list(c(1, 0, 0)),
   # MCMC parms
-  num_runs = 10,
+  num_runs = 1000,
   n_iter = 40000,
   burn_in = 30000,
   covariate_labels = list(c("Agriculture", "Development", "Forest")) # don't include restricted habitats
@@ -274,7 +274,7 @@ for (cam_des in 1:nrow(all_designs)) {
         as.matrix()
 
       # Run models only if any data points were collected
-      if (sum(count_data$count) == 0) {
+      if (sum(count_data$count) == 0 | length(kappa.prior.mu) != study_design$num_covariates) {
         D.PATH.MCMC <- NA
         SD.PATH.MCMC <- NA
       } else {

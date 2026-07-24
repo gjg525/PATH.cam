@@ -9,9 +9,9 @@ fig_dir <- "G:/My Drive/Missoula_postdoc/PATH_model/imgs/"
 fig_colors <- c("#1B5E20", "#00A8C6", "#FBC02D", "#E65100", "#8E44AD", "#4B6FAD", "#D81B60")
 ################################################################################
 # design_names <- c(
-#   "Random", "Slow_80_bias", "Medium_80_bias", "Fast_80_bias", "Slow_bias", "Medium_bias", "Fast_bias"
+#   "Random", "Slow_80_bias", "Med_80_bias", "Fast_80_bias", "Slow_bias", "Med_bias", "Fast_bias"
 # )
-# ncams <- 125
+# ncams <- 250
 # file_names <- c(
 #   "random",
 #   "slow",
@@ -21,7 +21,7 @@ fig_colors <- c("#1B5E20", "#00A8C6", "#FBC02D", "#E65100", "#8E44AD", "#4B6FAD"
 #   "all_med",
 #   "all_fast"
 # )
-
+#
 # # Collect density estimates for from all results
 # # (This makes it easier to analyze)
 # loadRData <- function(fileName){
