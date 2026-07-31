@@ -268,7 +268,12 @@ for (cam_des in 1:nrow(all_designs)) {
 
       all_data$count_data[[run]] <- list(count_data)
 
-      encounter_data <- get_encounter_data(cam_locs, all_data$cam_captures[[run]])$encounter
+      encounter_data_all <- get_encounter_data(cam_locs, all_data$cam_captures[[run]])
+      encounter_num_cov <- encounter_data_all |>
+        dplyr::filter(encounter > 0) |>
+        dplyr::summarise(n_covs = length(unique(Speed))) |>
+        dplyr::pull(n_covs)
+      encounter_data <- encounter_data_all$encounter
       stay_time_data <- get_stay_time_data(cam_locs, all_data$cam_captures[[run]])[[2]] |>
         as.matrix()
 
@@ -342,32 +347,36 @@ for (cam_des in 1:nrow(all_designs)) {
         ###################################
         # REST w/ covariates
         ###################################
-        chain.REST.cov <- fit.model.mcmc.REST.cov(
-          study_design,
-          cam_design,
-          cam_locs,
-          gamma_start = rep(log(mean(encounter_data)), study_design$num_covariates),
-          kappa_start = rep(log(mean(stay_time_data,na.rm=T)), study_design$num_covariates),
-          gamma_prior_var = 10^4,
-          kappa_prior_var = 10^4,
-          gamma_tune = rep(-1, study_design$num_covariates),
-          kappa_tune = rep(-1, study_design$num_covariates),
-          encounter_data_in = encounter_data,
-          stay_time_data_in = stay_time_data
-        )
-
-        # ## Posterior summaries
-        # plot(chain.REST.cov$tot_u[study_design$burn_in:study_design$n_iter])
-        D.REST.MCMC.cov <- mean(chain.REST.cov$tot_u[study_design$burn_in:study_design$n_iter])
-        SD.REST.MCMC.cov <- sd(chain.REST.cov$tot_u[study_design$burn_in:study_design$n_iter])
-
-        if(any(colMeans(chain.REST.cov$accept[study_design$burn_in:study_design$n_iter,])< 0.2) ||
-           any(colMeans(chain.REST.cov$accept[study_design$burn_in:study_design$n_iter,])> 0.7)){
-          warning(('REST accept rate OOB'))
+        if (encounter_num_cov != study_design$num_covariates) {
           D.REST.MCMC.cov <- NA
           SD.REST.MCMC.cov <- NA
-        }
+        } else {
+          chain.REST.cov <- fit.model.mcmc.REST.cov(
+            study_design,
+            cam_design,
+            cam_locs,
+            gamma_start = rep(log(mean(encounter_data)), study_design$num_covariates),
+            kappa_start = rep(log(mean(stay_time_data,na.rm=T)), study_design$num_covariates),
+            gamma_prior_var = 10^4,
+            kappa_prior_var = 10^4,
+            gamma_tune = rep(-1, study_design$num_covariates),
+            kappa_tune = rep(-1, study_design$num_covariates),
+            encounter_data_in = encounter_data,
+            stay_time_data_in = stay_time_data
+          )
 
+          # ## Posterior summaries
+          # plot(chain.REST.cov$tot_u[study_design$burn_in:study_design$n_iter])
+          D.REST.MCMC.cov <- mean(chain.REST.cov$tot_u[study_design$burn_in:study_design$n_iter])
+          SD.REST.MCMC.cov <- sd(chain.REST.cov$tot_u[study_design$burn_in:study_design$n_iter])
+
+          if(any(colMeans(chain.REST.cov$accept[study_design$burn_in:study_design$n_iter,])< 0.2) ||
+             any(colMeans(chain.REST.cov$accept[study_design$burn_in:study_design$n_iter,])> 0.7)){
+            warning(('REST accept rate OOB'))
+            D.REST.MCMC.cov <- NA
+            SD.REST.MCMC.cov <- NA
+          }
+        }
       }
 
       D_all[[(run - 1) * 2 + 1]] <- tibble::tibble(
