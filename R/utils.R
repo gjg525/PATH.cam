@@ -36,7 +36,8 @@ create_cam_samp_design <- function(study_design,
 
   cam_inds <- sample_speeds(
     cam.dist.prop = cam_design,
-    lscape_speeds = lscape_defs
+    lscape_speeds = lscape_defs,
+    covariate_labels = unlist(study_design$covariate_labels)
     )
 
   cam_locs <- tibble::tibble(
@@ -83,7 +84,7 @@ create_cam_samp_design <- function(study_design,
 #' @param lscape_speeds A data frame of landscape definitions.
 #'
 #' @return A vector of integer indices.
-sample_speeds <- function(cam.dist.prop = NULL, lscape_speeds) {
+sample_speeds <- function(cam.dist.prop = NULL, lscape_speeds, covariate_labels = NULL) {
 
   sample_idx <- lscape_speeds$Index[lscape_speeds$Speed != "Water"]
   if (cam.dist.prop$Design == "Random") {
@@ -100,10 +101,17 @@ sample_speeds <- function(cam.dist.prop = NULL, lscape_speeds) {
                             pull(Index),
                           ps[2],
                           replace=F))
-  } else{
-    ps <- round(cam.dist.prop$ncam * unlist(cam.dist.prop$Props))
+  } else {
+    # Use covariate_labels to determine category order; Props[i] maps to
+    # covariate_labels[i]. Fall back to sorted unique Speeds if labels are
+    # not provided.
+    if (!is.null(covariate_labels)) {
+      speed_categories <- covariate_labels
+    } else {
+      speed_categories <- sort(unique(lscape_speeds$Speed[lscape_speeds$Speed != "Water"]))
+    }
 
-    speed_categories <- sort(unique(lscape_speeds$Speed))
+    ps <- round(cam.dist.prop$ncam * unlist(cam.dist.prop$Props))
 
     # Dynamically adjust the last category so the total perfectly matches ncam
     n_cats <- length(speed_categories)
@@ -124,23 +132,6 @@ sample_speeds <- function(cam.dist.prop = NULL, lscape_speeds) {
         )
       }, speed_categories, ps)
     )
-    # ps <- round(cam.dist.prop$ncam * unlist(cam.dist.prop$Props))
-    # ps[3] <- cam.dist.prop$ncam - sum(ps[1:2])
-    # cam.samps <- c(sample(lscape_speeds |>
-    #                         filter(Speed == "Slow") |>
-    #                         pull(Index),
-    #                       ps[1],
-    #                       replace=F),
-    #                sample(lscape_speeds |>
-    #                         filter(Speed == "Medium") |>
-    #                         pull(Index),
-    #                       ps[2],
-    #                       replace=F),
-    #                sample(lscape_speeds |>
-    #                         filter(Speed == "Fast") |>
-    #                         pull(Index),
-    #                       ps[3],
-    #                       replace=F))
   }
 }
 
