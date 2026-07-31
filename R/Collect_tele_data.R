@@ -22,7 +22,7 @@
 #'   (default is "Speed"). The function assumes this column exists in the data
 #'   (or that \code{lscape_type} can be renamed to it).
 #'
-#' @return A data frame (tibble) sorted by the grouping variable in descending order, containing:
+#' @return A data frame (tibble) sorted to match \code{study_design$covariate_labels} order, containing:
 #' \itemize{
 #'   \item The grouping column (e.g., \code{Speed}).
 #'   \item \code{n}: The count of location fixes in that category.
@@ -55,7 +55,7 @@ Collect_tele_data = function(animalxy.all, study_design, grouping = "Speed", tel
       # # variance on multinomial distribution
       # stay_sd = stay_prop * (1 - stay_prop) / sum(n)
     ) %>%
-    dplyr::arrange(desc(!!sym(grouping)))
+    dplyr::arrange(match(!!sym(grouping), unlist(study_design$covariate_labels)))
 
   # # Group by animal
   # cell_captures_tele <- animalxy.all |>

@@ -85,7 +85,7 @@ all_designs <- tibble::tibble(
     list(c(0, 0, 1))
   )
 )
-for (cam_des in 2:nrow(all_designs)) {
+for (cam_des in 5:nrow(all_designs)) {
   for (cam in 1:length(cam_tests)) {
 
     # Cam designs
@@ -208,7 +208,8 @@ for (cam_des in 2:nrow(all_designs)) {
           d_coeff = n_lscape * prop_cams / stay_prop / (cam_design$cam_A * study_design$t_steps)
         ) %>%
         replace(is.na(.), 0) %>%
-        dplyr::select(Speed, n_lscape, prop_cams, d_coeff)
+        dplyr::select(Speed, n_lscape, prop_cams, d_coeff) %>%
+        dplyr::arrange(match(Speed, unlist(study_design$covariate_labels)))
 
       habitat_summary$Speed <- factor(
         habitat_summary$Speed,
@@ -232,33 +233,39 @@ for (cam_des in 2:nrow(all_designs)) {
         D.PR.MCMC.habitat <- NA
         SD.PR.MCMC.habitat <- NA
       } else {
-        # chain.PATH <- fit.model.mcmc.PATH(
-        #   study_design = study_design,
-        #   cam_design = cam_design,
-        #   cam_locs = cam_locs,
-        #   gamma_start = rep(log(mean(count_data$count)), study_design$num_covariates),
-        #   gamma_prior_var = 10^4,
-        #   gamma_tune = rep(-1, study_design$num_covariates),
-        #   kappa_start = log(exp(kappa.prior.mu) / sum(exp(kappa.prior.mu))),
-        #   kappa_prior_mu = kappa.prior.mu,
-        #   kappa_prior_var = kappa.prior.var,
-        #   kappa_tune = -1, #rep(-1, study_design$num_covariates),
-        #   count_data_in = count_data,
-        #   habitat_summary
-        # )
-        #
-        # ## Posterior summaries
-        # # plot(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
-        # D.PATH.MCMC <- mean(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
-        # SD.PATH.MCMC <- sd(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
-        #
-        # if (any(colMeans(chain.PATH$accept[study_design$burn_in:study_design$n_iter, ]) < 0.2) || any(colMeans(chain.PATH$accept[study_design$burn_in:study_design$n_iter, ]) > 0.7)) {
-        #   warning(("Mean Count accept rate OOB"))
-        #   D.PATH.MCMC <- NA
-        #   SD.PATH.MCMC <- NA
-        # }
+        chain.PATH <- fit.model.mcmc.PATH(
+          study_design = study_design,
+          cam_design = cam_design,
+          cam_locs = cam_locs,
+          gamma_start = rep(log(mean(count_data$count)), study_design$num_covariates),
+          gamma_prior_var = 10^4,
+          gamma_tune = rep(-1, study_design$num_covariates),
+          kappa_start = log(exp(kappa.prior.mu) / sum(exp(kappa.prior.mu))),
+          kappa_prior_mu = kappa.prior.mu,
+          kappa_prior_var = kappa.prior.var,
+          kappa_tune = -1, #rep(-1, study_design$num_covariates),
+          count_data_in = count_data,
+          habitat_summary
+        )
 
+        ## Posterior summaries
+        # plot(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
+        D.PATH.MCMC <- mean(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
+        SD.PATH.MCMC <- sd(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
+
+        if (any(colMeans(chain.PATH$accept[study_design$burn_in:study_design$n_iter, ]) < 0.2) || any(colMeans(chain.PATH$accept[study_design$burn_in:study_design$n_iter, ]) > 0.7)) {
+          warning(("Mean Count accept rate OOB"))
+          D.PATH.MCMC <- NA
+          SD.PATH.MCMC <- NA
+        }
+      }
         ################################################################################
+      if (sum(encounter_data) == 0) {
+        D.REST.MCMC <- NA
+        SD.REST.MCMC <- NA
+        D.REST.MCMC.cov <- NA
+        SD.REST.MCMC.cov <- NA
+      } else {
         # REST, no covariates
         chain.REST <- fit.model.mcmc.REST(
           study_design,
@@ -319,14 +326,18 @@ for (cam_des in 2:nrow(all_designs)) {
 
       D_all[[(run - 1) * 2 + 1]] <- tibble::tibble(
         iteration = run,
+        cam_design = cam_design$Design_name,
+        cams = ncam_temp,
         Model = "PATH",
         Covariate = "Non-Covariate",
-        Est = NA, #D.PATH.MCMC,
-        SD = NA, #SD.PATH.MCMC
+        Est = D.PATH.MCMC,
+        SD = SD.PATH.MCMC
       )
 
       D_all_REST[[(run - 1) * 2 + 1]] <- tibble::tibble(
         iteration = run,
+        cam_design = cam_design$Design_name,
+        cams = ncam_temp,
         Model = "REST",
         Covariate = "Non-Covariate",
         Est = D.REST.MCMC,
@@ -335,6 +346,8 @@ for (cam_des in 2:nrow(all_designs)) {
 
       D_all_REST[[run * 2]] <- tibble::tibble(
         iteration = run,
+        cam_design = cam_design$Design_name,
+        cams = ncam_temp,
         Model = "REST",
         Covariate = "Covariate",
         Est = D.REST.MCMC.cov,

@@ -189,8 +189,7 @@ for (cam_des in 1:nrow(all_designs)) {
       animalxy.all <- ABM_sim(study_design,
                               lscape_defs)
 
-      tele_summary <- Collect_tele_data(animalxy.all, study_design, tele_sample = tele_sample) |>
-        dplyr::arrange(Speed)
+      tele_summary <- Collect_tele_data(animalxy.all, study_design, tele_sample = tele_sample)
 
       # Use largest stay time as reference category
       ref_cat_idx <- which(tele_summary$stay_prop == min(tele_summary$stay_prop))
@@ -247,8 +246,8 @@ for (cam_des in 1:nrow(all_designs)) {
           d_coeff = n_lscape * prop_cams / stay_prop / (cam_design$cam_A * study_design$t_steps)
         ) %>%
         replace(is.na(.), 0) %>%
-        dplyr::select(Speed, n_lscape, prop_cams, d_coeff) |>
-        dplyr::arrange(Speed)
+        dplyr::select(Speed, n_lscape, prop_cams, d_coeff) %>%
+        dplyr::arrange(match(Speed, unlist(study_design$covariate_labels)))
 
       habitat_summary$Speed <- factor(
         habitat_summary$Speed,
@@ -405,7 +404,7 @@ for (cam_des in 1:nrow(all_designs)) {
         (tot_snaps * cam_design$cam_A)
 
       M <- cam_design$ncam
-      J <- study_design$t_steps
+      J <- study_design$t_steps / cam_design$snap_rate
       L <- cam_design$cam_A * M * J
       sum_c <- sum((J * cam_design$cam_A) ^ 2 * (count_data$count /
                                                    (J * cam_design$cam_A) - sum(count_data$count) / L) ^ 2)
