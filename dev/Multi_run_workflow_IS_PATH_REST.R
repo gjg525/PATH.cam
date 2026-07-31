@@ -174,6 +174,10 @@ for (run in 1:study_design$num_runs) {
   encounter_data <- get_encounter_data(cam_locs, all_data$cam_captures[[run]])$encounter
   stay_time_data <- get_stay_time_data(cam_locs, all_data$cam_captures[[run]])[[2]] |>
     as.matrix()
+
+  all_data$encounter_data[[run]] <- list(encounter_data)
+  all_data$stay_time_data[[run]] <- list(stay_time_data)
+
   ################################################################################
   if (sum(count_data$count) == 0) {
     D.PATH.MCMC <- NA
