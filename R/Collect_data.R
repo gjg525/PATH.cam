@@ -131,7 +131,7 @@ get_cam_captures <- function(animalxy, cam_locs, study_design) {
 #' }
 #' @export
 #'
-get_count_data <- function(cam_locs, cam_captures, animalxy, seq_tbl) {
+get_count_data <- function(cam_locs, cam_captures, animalxy, seq_tbl = NULL) {
 
   if (is.null(seq_tbl)) {
     seq_tbl <- tibble::tibble(
