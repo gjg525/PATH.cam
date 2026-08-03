@@ -91,6 +91,7 @@ for (cam_des in 5:nrow(all_designs)) {
     # Cam designs
     cam_design <- tibble::tibble(
       ncam = cam_tests[cam],
+      snap_rate = 1 / 6, # snapshot rate (hours)
       Design_name = all_designs$Design_name[cam_des],
       Design = all_designs$Design[cam_des],
       Props = all_designs$Props[cam_des],
@@ -216,11 +217,17 @@ for (cam_des in 5:nrow(all_designs)) {
         levels = unlist(study_design$covariate_labels)
       )
 
+      seq_tbl <- tibble::tibble(
+        val = seq(1, study_design$t_steps, by = cam_design$snap_rate)
+      )
+
       count_data <- get_count_data(
         cam_locs,
         all_data$cam_captures[[run]],
         animalxy.all %>%
-          dplyr::filter(t != 0))
+          dplyr::filter(t != 0),
+        seq_tbl
+      )
 
       all_data$count_data[[run]] <- list(count_data)
 
