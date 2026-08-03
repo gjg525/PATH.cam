@@ -22,7 +22,7 @@
 #'   (default is "Speed"). The function assumes this column exists in the data
 #'   (or that \code{lscape_type} can be renamed to it).
 #'
-#' @return A data frame (tibble) sorted by the grouping variable in descending order, containing:
+#' @return A data frame (tibble) sorted to match \code{study_design$covariate_labels} order, containing:
 #' \itemize{
 #'   \item The grouping column (e.g., \code{Speed}).
 #'   \item \code{n}: The count of location fixes in that category.
@@ -32,10 +32,18 @@
 #'
 #' @export
 #'
-Collect_tele_data = function(animalxy.all, study_design, grouping = "Speed") {
+Collect_tele_data = function(animalxy.all, study_design, grouping = "Speed", tele_sample = NULL) {
+  if (is.null(tele_sample)) {
+    t_sample <- seq(1, study_design$t_steps, study_design$dt)
+    ID_sample <- unique(animalxy.all$Animal_ID)
+  } else {
+    t_sample <- seq(1, study_design$t_steps, tele_sample$t_sample_freq)
+    ID_sample <- sample(unique(animalxy.all$Animal_ID), tele_sample$ID_sample_size)
+  }
+
   # Calculate mean residence indices
   cell_captures_tele <- animalxy.all %>%
-    dplyr::filter(t %in% seq(1, study_design$t_steps, study_design$dt)) %>%
+    dplyr::filter(t %in% t_sample & Animal_ID %in% ID_sample) %>%
     dplyr::rename(Speed = lscape_type) %>%
     dplyr::group_by(!!sym(grouping)) %>%
     dplyr::count() %>%
@@ -47,7 +55,7 @@ Collect_tele_data = function(animalxy.all, study_design, grouping = "Speed") {
       # # variance on multinomial distribution
       # stay_sd = stay_prop * (1 - stay_prop) / sum(n)
     ) %>%
-    dplyr::arrange(desc(!!sym(grouping)))
+    dplyr::arrange(match(!!sym(grouping), unlist(study_design$covariate_labels)))
 
   # # Group by animal
   # cell_captures_tele <- animalxy.all |>

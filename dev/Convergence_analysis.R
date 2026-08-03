@@ -4,9 +4,9 @@ library(lattice)
 library(gridExtra)
 library(doParallel)
 devtools::load_all()
-# NOTE: MIGHT NEED TO RERUN RANDOM CAMS
-sim_dir <- "C:/Users/guen.grosklos/Google Drive/Missoula_postdoc/PATH_model/sim_results/"
-sim_dir_REST <- "C:/Users/guen.grosklos/Google Drive/Missoula_postdoc/PATH_model/sim_results_REST/"
+
+sim_dir <- "G:/My Drive/Missoula_postdoc/PATH_model/sim_results/"
+save_dir <- "G:/My Drive/Missoula_postdoc/PATH_model/convergence_results/"
 
 # Initializations
 fig_colors <- c("#2ca25f", "#fc8d59", "#67a9cf", "#f768a1", "#bae4b3", "#fed98e")
@@ -14,16 +14,10 @@ options(ggplot2.discrete.colour = fig_colors)
 options(ggplot2.discrete.fill = fig_colors)
 
 # Run with different number of cameras
-cam_tests <- c(25, 50, 75, 100, 125)
-# cam_tests <- c(50, 75, 100)
-# cam_tests <- c(100)
+cam_tests <- c(25, 50, 75, 100, 125, 250)
 
 # Load animal GPS data
-# load(file = paste0(sim_dir, "save_animal_data_1.RData"))
 load(file = paste0(sim_dir, "save_lscape_defs.RData"))
-
-# save_animal_data <- save_animal_data_1
-# rm(save_animal_data_1)
 
 # Study design
 study_design <- tibble::tibble(
@@ -40,7 +34,7 @@ study_design <- tibble::tibble(
   group_spread = 0, # Tightness of grouping behavior (relative to grid size)
   tot_animals = sum(unlist(group_sizes)),
   # MCMC parms
-  num_runs = 1000,
+  num_runs = 50,
   n_iter = 40000,
   burn_in = 30000,
   covariate_labels = list(c("Slow", "Medium", "Fast"))
@@ -69,29 +63,8 @@ all_designs <- tibble::tibble(
     list(c(0, 0, 1))
   )
 )
-# # # Design for single run with 250 cameras
-cam_tests <- 250
-all_designs <- tibble::tibble(
-  Design_name = c("Random", "Slow_80_bias", "Med_80_bias", "Fast_80_bias",
-                  "Slow_bias", "Med_bias", "Fast_bias"),
-  Design =c("Random", "Bias", "Bias", "Bias", "Bias", "Bias", "Bias"),
-  Props = c(
-    list(c(1, 1, 1)),
-    list(c(.8, .1, .1)),
-    list(c(.1, .8, .1)),
-    list(c(.1, .1, .8)),
-    list(c(1, 0, 0)),
-    list(c(0, 1, 0)),
-    list(c(0, 0, 1))
-  )
-)
-<<<<<<< HEAD
 
-NoSleepR::nosleep_on()
-for (cam_des in 4) {
-=======
-for (cam_des in 5:nrow(all_designs)) {
->>>>>>> fb6041729158df1e01ae2b2ad4c0a3969f568d9a
+for (cam_des in 1:nrow(all_designs)) {
   for (cam in 1:length(cam_tests)) {
 
     # Cam designs
@@ -215,36 +188,25 @@ for (cam_des in 5:nrow(all_designs)) {
           d_coeff = n_lscape * prop_cams / stay_prop / (cam_design$cam_A * study_design$t_steps)
         ) %>%
         replace(is.na(.), 0) %>%
-<<<<<<< HEAD
-        dplyr::select(Speed, n_lscape, prop_cams, d_coeff)
-=======
         dplyr::select(Speed, n_lscape, prop_cams, d_coeff) %>%
         dplyr::arrange(match(Speed, unlist(study_design$covariate_labels)))
->>>>>>> fb6041729158df1e01ae2b2ad4c0a3969f568d9a
 
       habitat_summary$Speed <- factor(
         habitat_summary$Speed,
         levels = unlist(study_design$covariate_labels)
       )
 
-<<<<<<< HEAD
-=======
       seq_tbl <- tibble::tibble(
         val = seq(1, study_design$t_steps, by = cam_design$snap_rate)
       )
 
->>>>>>> fb6041729158df1e01ae2b2ad4c0a3969f568d9a
       count_data <- get_count_data(
         cam_locs,
         all_data$cam_captures[[run]],
         animalxy.all %>%
-<<<<<<< HEAD
-          dplyr::filter(t != 0))
-=======
           dplyr::filter(t != 0),
         seq_tbl
       )
->>>>>>> fb6041729158df1e01ae2b2ad4c0a3969f568d9a
 
       all_data$count_data[[run]] <- list(count_data)
 
@@ -252,138 +214,173 @@ for (cam_des in 5:nrow(all_designs)) {
       stay_time_data <- get_stay_time_data(cam_locs, all_data$cam_captures[[run]])[[2]] |>
         as.matrix()
 
-<<<<<<< HEAD
-=======
       all_data$encounter_data[[run]] <- list(encounter_data)
       all_data$stay_time_data[[run]] <- list(stay_time_data)
 
->>>>>>> fb6041729158df1e01ae2b2ad4c0a3969f568d9a
       # Run models only if any data points were collected
       if (sum(count_data$count) == 0) {
-        D.PR.MCMC.habitat <- NA
-        SD.PR.MCMC.habitat <- NA
+        D.PATH.MCMC <- NA
+        SD.PATH.MCMC <- NA
+        PATH_max_rhat <- NA
+        PATH_ess_results <- NA
       } else {
-<<<<<<< HEAD
-        # chain.PATH <- fit.model.mcmc.PATH(
-        #   study_design = study_design,
-        #   cam_design = cam_design,
-        #   cam_locs = cam_locs,
-        #   gamma_start = rep(log(mean(count_data$count)), study_design$num_covariates),
-        #   gamma_prior_var = 10^4,
-        #   gamma_tune = rep(-1, study_design$num_covariates),
-        #   kappa_start = log(exp(kappa.prior.mu) / sum(exp(kappa.prior.mu))),
-        #   kappa_prior_mu = kappa.prior.mu,
-        #   kappa_prior_var = kappa.prior.var,
-        #   kappa_tune = -1, #rep(-1, study_design$num_covariates),
-        #   count_data_in = count_data,
-        #   habitat_summary
-        # )
-        #
-        # ## Posterior summaries
-        # # plot(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
-        # D.PATH.MCMC <- mean(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
-        # SD.PATH.MCMC <- sd(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
-        #
-        # if (any(colMeans(chain.PATH$accept[study_design$burn_in:study_design$n_iter, ]) < 0.2) || any(colMeans(chain.PATH$accept[study_design$burn_in:study_design$n_iter, ]) > 0.7)) {
-        #   warning(("Mean Count accept rate OOB"))
-        #   D.PATH.MCMC <- NA
-        #   SD.PATH.MCMC <- NA
-        # }
-      }
-      if (sum(encounter_data) == 0) {
-        D.REST.MCMC <- NA
-        SD.REST.MCMC <- NA
-        D.REST.MCMC.cov  <- NA
-        SD.REST.MCMC.cov  <- NA
-      } else {
-=======
-        chain.PATH <- fit.model.mcmc.PATH(
-          study_design = study_design,
-          cam_design = cam_design,
-          cam_locs = cam_locs,
-          gamma_start = rep(log(mean(count_data$count)), study_design$num_covariates),
-          gamma_prior_var = 10^4,
-          gamma_tune = rep(-1, study_design$num_covariates),
-          kappa_start = log(exp(kappa.prior.mu) / sum(exp(kappa.prior.mu))),
-          kappa_prior_mu = kappa.prior.mu,
-          kappa_prior_var = kappa.prior.var,
-          kappa_tune = -1, #rep(-1, study_design$num_covariates),
-          count_data_in = count_data,
-          habitat_summary
-        )
+        my_cluster <- parallel::makeCluster(3, type = "PSOCK")
+        doParallel::registerDoParallel(cl = my_cluster)
+
+        # Loop through groups in parallel
+        PATH_out <- foreach::foreach(nc = 1:3) %dopar% {
+
+          chain.PATH <- PATH.cam::fit.model.mcmc.PATH(
+            study_design = study_design,
+            cam_design = cam_design,
+            cam_locs = cam_locs,
+            gamma_start = rep(log(mean(count_data$count)), study_design$num_covariates),
+            gamma_prior_var = 10^4,
+            gamma_tune = rep(-1, study_design$num_covariates),
+            kappa_start = log(exp(kappa.prior.mu) / sum(exp(kappa.prior.mu))),
+            kappa_prior_mu = kappa.prior.mu,
+            kappa_prior_var = kappa.prior.var,
+            kappa_tune = -1, #rep(-1, study_design$num_covariates),
+            count_data_in = count_data,
+            habitat_summary
+          )
+        }
+        # Stop cluster
+        stopCluster(my_cluster)
+
+        # Convert individual chains to 'mcmc' objects
+        c1 <- coda::as.mcmc(do.call(cbind, PATH_out[[1]][-grep("accept", names(PATH_out[[1]]))]))
+        c2 <- coda::as.mcmc(do.call(cbind, PATH_out[[2]][-grep("accept", names(PATH_out[[2]]))]))
+        c3 <- coda::as.mcmc(do.call(cbind, PATH_out[[3]][-grep("accept", names(PATH_out[[3]]))]))
+
+        # Combine them into an 'mcmc.list'
+        posterior_samples <- coda::mcmc.list(c1, c2, c3)
+
+        # Calculate Gelman-Rubin (R-hat)
+        gelman_results <- coda::gelman.diag(posterior_samples, multivariate = FALSE)
+
+        # Check if ANY parameter failed convergence (R-hat > 1.1)
+        PATH_max_rhat <- max(gelman_results$psrf[, 1])
+
+        # Calculate effective sample size
+        PATH_ess_results <- coda::effectiveSize(posterior_samples)
+        # bayesplot::mcmc_trace(window(posterior_samples, start = 1001))
 
         ## Posterior summaries
         # plot(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
-        D.PATH.MCMC <- mean(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
-        SD.PATH.MCMC <- sd(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
+        D.PATH.MCMC <- sapply(PATH_out, function(x) mean(x$tot_u, na.rm = TRUE))  #mean(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
+        SD.PATH.MCMC <- sapply(PATH_out, function(x) sd(x$tot_u, na.rm = TRUE))  # sd(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
 
-        if (any(colMeans(chain.PATH$accept[study_design$burn_in:study_design$n_iter, ]) < 0.2) || any(colMeans(chain.PATH$accept[study_design$burn_in:study_design$n_iter, ]) > 0.7)) {
-          warning(("Mean Count accept rate OOB"))
-          D.PATH.MCMC <- NA
-          SD.PATH.MCMC <- NA
-        }
       }
->>>>>>> fb6041729158df1e01ae2b2ad4c0a3969f568d9a
-        ################################################################################
+      ################################################################################
       if (sum(encounter_data) == 0) {
         D.REST.MCMC <- NA
         SD.REST.MCMC <- NA
         D.REST.MCMC.cov <- NA
         SD.REST.MCMC.cov <- NA
+        REST_max_rhat <- NA
+        REST_ess_results <- NA
+        REST_cov_max_rhat <- NA
+        REST_cov_ess_results <- NA
+
       } else {
-        # REST, no covariates
-        chain.REST <- fit.model.mcmc.REST(
-          study_design,
-          cam_design,
-          gamma_start = log(mean(encounter_data)),
-          kappa_start = log(mean(stay_time_data,na.rm=T)),
-          gamma_prior_var = 10^4,
-          kappa_prior_var = 10^4,
-          gamma_tune = -1,
-          kappa_tune = -1,
-          encounter_data_in = encounter_data,
-          stay_time_data_in = stay_time_data
-        )
+        my_cluster <- parallel::makeCluster(3, type = "PSOCK")
+        doParallel::registerDoParallel(cl = my_cluster)
+
+        # Loop through groups in parallel
+        REST_out <- foreach::foreach(nc = 1:3) %dopar% {
+          # REST, no covariates
+          chain.REST <- PATH.cam::fit.model.mcmc.REST(
+            study_design,
+            cam_design,
+            gamma_start = log(mean(encounter_data)),
+            kappa_start = log(mean(stay_time_data,na.rm=T)),
+            gamma_prior_var = 10^4,
+            kappa_prior_var = 10^4,
+            gamma_tune = -1,
+            kappa_tune = -1,
+            encounter_data_in = encounter_data,
+            stay_time_data_in = stay_time_data
+          )
+        }
+        # Stop cluster
+        stopCluster(my_cluster)
+
+        # Convert individual chains to 'mcmc' objects
+        c1 <- coda::as.mcmc(do.call(cbind, REST_out[[1]][-grep("accept", names(REST_out[[1]]))]))
+        c2 <- coda::as.mcmc(do.call(cbind, REST_out[[2]][-grep("accept", names(REST_out[[2]]))]))
+        c3 <- coda::as.mcmc(do.call(cbind, REST_out[[3]][-grep("accept", names(REST_out[[3]]))]))
+
+        # Combine them into an 'mcmc.list'
+        posterior_samples <- coda::mcmc.list(c1, c2, c3)
+
+        # Calculate Gelman-Rubin (R-hat)
+        gelman_results <- coda::gelman.diag(posterior_samples, multivariate = FALSE)
+
+        # Check if ANY parameter failed convergence (R-hat > 1.1)
+        REST_max_rhat <- max(gelman_results$psrf[, 1])
+
+        # Calculate effective sample size
+        REST_ess_results <- coda::effectiveSize(posterior_samples)
+        # bayesplot::mcmc_trace(window(posterior_samples, start = 1001))
+
 
         ## Posterior summaries
         # plot(chain.REST$tot_u[study_design$burn_in:study_design$n_iter])
-        D.REST.MCMC <- mean(chain.REST$tot_u[study_design$burn_in:study_design$n_iter])
-        SD.REST.MCMC <- sd(chain.REST$tot_u[study_design$burn_in:study_design$n_iter])
-
-        if(any(colMeans(chain.REST$accept[study_design$burn_in:study_design$n_iter,])< 0.2) || any(colMeans(chain.REST$accept[study_design$burn_in:study_design$n_iter,])> 0.7)){
-          warning(('REST accept rate OOB'))
-          D.REST.MCMC <- NA
-          SD.REST.MCMC <- NA
-        }
+        D.REST.MCMC <- sapply(REST_out, function(x) mean(x$tot_u, na.rm = TRUE))  #mean(chain.REST$tot_u[study_design$burn_in:study_design$n_iter])
+        SD.REST.MCMC <- sapply(REST_out, function(x) sd(x$tot_u, na.rm = TRUE))  # sd(chain.REST$tot_u[study_design$burn_in:study_design$n_iter])
 
         ###################################
         # REST w/ covariates
         ###################################
-        chain.REST.cov <- fit.model.mcmc.REST.cov(
-          study_design,
-          cam_design,
-          cam_locs,
-          gamma_start = rep(log(mean(encounter_data)), 3),
-          kappa_start = rep(log(mean(stay_time_data,na.rm=T)), 3),
-          gamma_prior_var = 10^4,
-          kappa_prior_var = 10^4,
-          gamma_tune = c(-1, -1, -1),
-          kappa_tune = c(-1, -1, -1),
-          encounter_data_in = encounter_data,
-          stay_time_data_in = stay_time_data
-        )
+        my_cluster <- parallel::makeCluster(3, type = "PSOCK")
+        doParallel::registerDoParallel(cl = my_cluster)
+
+        # Loop through groups in parallel
+        REST_cov_out <- foreach::foreach(nc = 1:3) %dopar% {
+
+          chain.REST.cov <- PATH.cam::fit.model.mcmc.REST.cov(
+            study_design,
+            cam_design,
+            cam_locs,
+            gamma_start = rep(log(mean(encounter_data)), 3),
+            kappa_start = rep(log(mean(stay_time_data,na.rm=T)), 3),
+            gamma_prior_var = 10^4,
+            kappa_prior_var = 10^4,
+            gamma_tune = c(-1, -1, -1),
+            kappa_tune = c(-1, -1, -1),
+            encounter_data_in = encounter_data,
+            stay_time_data_in = stay_time_data
+          )
+        }
+        # Stop cluster
+        stopCluster(my_cluster)
+
+        drop_names <- c("accept", "u")
+        keep_names <- setdiff(names(REST_cov_out[[1]]), drop_names)
+        # Convert individual chains to 'mcmc' objects
+        c1 <- coda::as.mcmc(do.call(cbind, REST_cov_out[[1]][keep_names]))
+        c2 <- coda::as.mcmc(do.call(cbind, REST_cov_out[[2]][keep_names]))
+        c3 <- coda::as.mcmc(do.call(cbind, REST_cov_out[[3]][keep_names]))
+
+        # Combine them into an 'mcmc.list'
+        posterior_samples <- coda::mcmc.list(c1, c2, c3)
+
+        # Calculate Gelman-Rubin (R-hat)
+        gelman_results <- coda::gelman.diag(posterior_samples, multivariate = FALSE)
+
+        # Check if ANY parameter failed convergence (R-hat > 1.1)
+        REST_cov_max_rhat <- max(gelman_results$psrf[, 1])
+
+        # Calculate effective sample size
+        REST_cov_ess_results <- coda::effectiveSize(posterior_samples)
+        # bayesplot::mcmc_trace(window(posterior_samples, start = 1001))
+
 
         # ## Posterior summaries
         # plot(chain.REST.cov$tot_u[study_design$burn_in:study_design$n_iter])
-        D.REST.MCMC.cov <- mean(chain.REST.cov$tot_u[study_design$burn_in:study_design$n_iter])
-        SD.REST.MCMC.cov <- sd(chain.REST.cov$tot_u[study_design$burn_in:study_design$n_iter])
-
-        if(any(colMeans(chain.REST.cov$accept[study_design$burn_in:study_design$n_iter,])< 0.2) ||
-           any(colMeans(chain.REST.cov$accept[study_design$burn_in:study_design$n_iter,])> 0.7)){
-          warning(('REST accept rate OOB'))
-          D.REST.MCMC.cov <- NA
-          SD.REST.MCMC.cov <- NA
-        }
+        D.REST.MCMC.cov <- sapply(REST_cov_out, function(x) mean(x$tot_u, na.rm = TRUE))  # mean(chain.REST.cov$tot_u[study_design$burn_in:study_design$n_iter])
+        SD.REST.MCMC.cov <- sapply(REST_cov_out, function(x) mean(x$tot_u, na.rm = TRUE))  # sd(chain.REST.cov$tot_u[study_design$burn_in:study_design$n_iter])
 
       }
 
@@ -395,8 +392,12 @@ for (cam_des in 5:nrow(all_designs)) {
         cams = ncam_temp,
         Model = "PATH",
         Covariate = "Non-Covariate",
-        Est = D.PATH.MCMC,
-        SD = SD.PATH.MCMC
+        Est = list(D.PATH.MCMC),
+        SD = list(D.PATH.MCMC),
+        max_Rhat = PATH_max_rhat,
+        num_low_ess = length(PATH_ess_results[PATH_ess_results < 1000]),
+        ess = list(PATH_ess_results)
+        # all_results = list(chain.PATH)
       )
 
       D_all_REST[[(run - 1) * 2 + 1]] <- tibble::tibble(
@@ -405,8 +406,11 @@ for (cam_des in 5:nrow(all_designs)) {
         cams = ncam_temp,
         Model = "REST",
         Covariate = "Non-Covariate",
-        Est = D.REST.MCMC,
-        SD = SD.REST.MCMC
+        Est = list(D.REST.MCMC),
+        SD = list(SD.REST.MCMC),
+        max_Rhat = REST_max_rhat,
+        num_low_ess = length(REST_ess_results[REST_ess_results < 1000]),
+        ess = list(REST_ess_results)
       )
 
       D_all_REST[[run * 2]] <- tibble::tibble(
@@ -415,8 +419,11 @@ for (cam_des in 5:nrow(all_designs)) {
         cams = ncam_temp,
         Model = "REST",
         Covariate = "Covariate",
-        Est = D.REST.MCMC.cov,
-        SD = SD.REST.MCMC.cov
+        Est = list(D.REST.MCMC.cov),
+        SD = list(SD.REST.MCMC.cov),
+        max_Rhat = REST_cov_max_rhat,
+        num_low_ess = length(REST_cov_ess_results[REST_cov_ess_results < 1000]),
+        ess = list(REST_cov_ess_results)
       )
 
       ################################################################################
@@ -440,51 +447,28 @@ for (cam_des in 5:nrow(all_designs)) {
         cam_design = cam_design$Design_name,
         cams = ncam_temp,
         Model = "IS",
-        Est = IS_mean,
-        SD = SE_N
+        Est = list(IS_mean),
+        SD = list(SE_N)
         # all_results = list(chain.PR.habitat)
       )
 
     }
 
-    # save_results <- list(
-    #   # save_animal_data,
-    #   study_design,
-    #   cam_design,
-    #   lscape_design,
-    #   all_data,
-    #   D_all
-    # )
-    #
-    # save(save_results, file = paste0(sim_dir,
-    #                                  cam_design$Design_name,
-    #                                  "_",
-    #                                  cam_design$ncam,
-    #                                  "_cam.RData")
-    # )
-
-    # rm(save_results, all_data, D_all)
-    rm(all_data, D_all)
-
-    save_results_REST <- list(
-      study_design,
-      cam_design,
-      lscape_design,
-      D_all_REST
+    save_conv_test <- dplyr::bind_rows(
+      D_all, D_all_REST
     )
-
-    save(save_results_REST, file = paste0(sim_dir_REST,
+    save(save_conv_test, file = paste0(save_dir,
                                           cam_design$Design_name,
                                           "_",
                                           cam_design$ncam,
-                                          "_cam_REST.RData")
+                                          "_cam_convergence.RData")
     )
 
-    rm(save_results_REST, D_all_REST)
+    rm(save_conv_test, D_all, D_all_REST)
 
   }
 }
-NoSleepR::nosleep_off()
+
 
 # # Omit all_results column (too much data)
 # D_all <- D_all %>%

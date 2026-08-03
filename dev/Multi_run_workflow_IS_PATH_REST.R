@@ -157,7 +157,8 @@ for (run in 1:study_design$num_runs) {
       d_coeff = n_lscape * prop_cams / stay_prop / (cam_design$cam_A * study_design$t_steps)
     ) %>%
     replace(is.na(.), 0) %>%
-    dplyr::select(Speed, n_lscape, prop_cams, d_coeff)
+    dplyr::select(Speed, n_lscape, prop_cams, d_coeff) %>%
+    dplyr::arrange(match(Speed, unlist(study_design$covariate_labels)))
 
   habitat_summary$Speed <- factor(
     habitat_summary$Speed,
@@ -173,15 +174,14 @@ for (run in 1:study_design$num_runs) {
   encounter_data <- get_encounter_data(cam_locs, all_data$cam_captures[[run]])$encounter
   stay_time_data <- get_stay_time_data(cam_locs, all_data$cam_captures[[run]])[[2]] |>
     as.matrix()
+
+  all_data$encounter_data[[run]] <- list(encounter_data)
+  all_data$stay_time_data[[run]] <- list(stay_time_data)
+
   ################################################################################
   if (sum(count_data$count) == 0) {
     D.PATH.MCMC <- NA
     SD.PATH.MCMC <- NA
-    D.REST.MCMC <- NA
-    SD.REST.MCMC <- NA
-    D.REST.MCMC.cov <- NA
-    SD.REST.MCMC.cov <- NA
-
   } else {
     chain.PATH <- fit.model.mcmc.PATH(
       study_design = study_design,
@@ -209,7 +209,14 @@ for (run in 1:study_design$num_runs) {
       SD.PATH.MCMC <- NA
     }
 
-    ################################################################################
+  }
+  ################################################################################
+  if (sum(encounter_data) == 0) {
+    D.REST.MCMC <- NA
+    SD.REST.MCMC <- NA
+    D.REST.MCMC.cov <- NA
+    SD.REST.MCMC.cov <- NA
+  } else {
     # REST, no covariates
     chain.REST <- fit.model.mcmc.REST(
       study_design,

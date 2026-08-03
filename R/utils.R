@@ -36,15 +36,25 @@ create_cam_samp_design <- function(study_design,
 
   cam_inds <- sample_speeds(
     cam.dist.prop = cam_design,
-    lscape_speeds = lscape_defs
+    lscape_speeds = lscape_defs,
+    covariate_labels = unlist(study_design$covariate_labels)
     )
 
   cam_locs <- tibble::tibble(
     cam_ID = 1:cam_design$ncam,
-    lscape_index = cam_inds,
-    x = ((cam_inds - 1) %% q^0.5 + 1) * dx - dx,
-    y = ceiling(cam_inds / q^0.5) * dy - dy
+    lscape_index = cam_inds
+    # x = ((cam_inds - 1) %% q^0.5 + 1) * dx - dx,
+    # y = ceiling(cam_inds / q^0.5) * dy - dy
   ) |>
+    dplyr::left_join(
+      lscape_defs |>
+        dplyr::select(lscape_index = Index, x = X, y = Y),
+      by = dplyr::join_by(lscape_index)
+    ) |>
+    dplyr::mutate(
+      x = x * dx - dx,
+      y = y * dy - dy
+    ) |>
     dplyr::group_by(cam_ID) |>
     dplyr::summarise(
       lscape_index = lscape_index,
@@ -74,9 +84,11 @@ create_cam_samp_design <- function(study_design,
 #' @param lscape_speeds A data frame of landscape definitions.
 #'
 #' @return A vector of integer indices.
-sample_speeds <- function(cam.dist.prop = NULL, lscape_speeds) {
+sample_speeds <- function(cam.dist.prop = NULL, lscape_speeds, covariate_labels = NULL) {
+
+  sample_idx <- lscape_speeds$Index[lscape_speeds$Speed != "Water"]
   if (cam.dist.prop$Design == "Random") {
-    cam.samps <- sample(lscape_speeds$Index, cam.dist.prop$ncam, replace = F)
+    cam.samps <- sample(sample_idx, cam.dist.prop$ncam, replace = F)
   } else if (cam.dist.prop$Design == "Road Bias") {
     ps <- cam.dist.prop$ncam * unlist(cam.dist.prop$Props)
     cam.samps <- c(sample(lscape_speeds |>
@@ -89,24 +101,37 @@ sample_speeds <- function(cam.dist.prop = NULL, lscape_speeds) {
                             pull(Index),
                           ps[2],
                           replace=F))
-  } else{
+  } else {
+    # Use covariate_labels to determine category order; Props[i] maps to
+    # covariate_labels[i]. Fall back to sorted unique Speeds if labels are
+    # not provided.
+    if (!is.null(covariate_labels)) {
+      speed_categories <- covariate_labels
+    } else {
+      speed_categories <- sort(unique(lscape_speeds$Speed[lscape_speeds$Speed != "Water"]))
+    }
+
     ps <- round(cam.dist.prop$ncam * unlist(cam.dist.prop$Props))
-    ps[3] <- cam.dist.prop$ncam - sum(ps[1:2])
-    cam.samps <- c(sample(lscape_speeds |>
-                            filter(Speed == "Slow") |>
-                            pull(Index),
-                          ps[1],
-                          replace=F),
-                   sample(lscape_speeds |>
-                            filter(Speed == "Medium") |>
-                            pull(Index),
-                          ps[2],
-                          replace=F),
-                   sample(lscape_speeds |>
-                            filter(Speed == "Fast") |>
-                            pull(Index),
-                          ps[3],
-                          replace=F))
+
+    # Dynamically adjust the last category so the total perfectly matches ncam
+    n_cats <- length(speed_categories)
+    ps[n_cats] <- cam.dist.prop$ncam - sum(ps[-n_cats])
+
+    # Use Map to iterate over categories and sample sizes simultaneously
+    cam.samps <- unlist(
+      Map(function(speed_cat, n_samp) {
+        # Only sample if n_samp > 0 to avoid errors
+        if (n_samp <= 0) return(numeric(0))
+
+        sample(
+          lscape_speeds |>
+            filter(Speed == speed_cat) |>
+            pull(Index),
+          size = n_samp,
+          replace = FALSE
+        )
+      }, speed_categories, ps)
+    )
   }
 }
 
@@ -130,48 +155,105 @@ sample_speeds <- function(cam.dist.prop = NULL, lscape_speeds) {
 place_animals <- function(study_design, lscape_defs) {
   # Randomly place across landscape
   q <- study_design$q
+  if ("Water" %in% lscape_defs$Speed) {
+    sample_idx <- lscape_defs$Index[!(lscape_defs$Speed %in% "Water")]
+  } else {
+    sample_idx <- 1:q
+  }
   num_groups <- study_design$num_groups
   group_sizes <- study_design$group_sizes
   group_spread <- study_design$group_spread
   tot_animals <- study_design$tot_animals
 
-  # Note: Allow for custom placements
-  animal.inds.0 <- tibble::tibble(
-    IC_index = sample(q, num_groups)
-  ) |>
-    dplyr::reframe(
-      group_ID = 1:num_groups,
-      group_size = unlist(group_sizes),
-      X_ind = ((IC_index - 1) %% q^0.5 + 1),
-      Y_ind = (ceiling(IC_index / q^0.5))
+  if (!is.null(study_design$Initial_placement)) {
+    prop_df <- tibble::tibble(
+      Speed  = unlist(study_design$covariate_labels),
+      prop_ic = unlist(study_design$Initial_placement)
     )
 
-  # Initial animal placement
-  animalxy.0 <- animal.inds.0 |>
-    dplyr::group_by(group_ID) |>
-    dplyr::summarise(
-      X = truncnorm::rtruncnorm(group_size,
-        a = 0,
-        b = q^0.5,
-        X_ind - 0.5,
-        group_spread
-      ),
-      Y = truncnorm::rtruncnorm(group_size,
-        a = 0,
-        b = q^0.5,
-        Y_ind - 0.5,
-        group_spread
-      ),
-      .groups = "drop"
+    # Join proportions to landscape grid & calculate per-cell weight
+    lscape_weighted <- lscape_defs |>
+      dplyr::left_join(prop_df, by = "Speed") |>
+      dplyr::mutate(prop_ic = dplyr::coalesce(prop_ic, 0)) |>
+      dplyr::group_by(Speed) |>
+      dplyr::mutate(
+        n_cells = dplyr::n(),
+        cell_weight = dplyr::if_else(n_cells > 0, prop_ic / n_cells, 0)
+      ) |>
+      dplyr::ungroup()
+
+    # Sample initial group centers weighted by habitat target proportions
+    animal.inds.0 <- lscape_weighted |>
+      dplyr::slice_sample(n = num_groups, weight_by = cell_weight, replace = TRUE) |>
+      dplyr::mutate(
+        group_ID = dplyr::row_number(),
+        group_size = unlist(group_sizes)
+      ) |>
+      dplyr::select(IC_index = Index, group_ID, group_size, X_ind = X, Y_ind = Y)
+
+    # Truncated normal jitter around group centers
+    animalxy.0 <- animal.inds.0 |>
+      dplyr::group_by(group_ID) |>
+      dplyr::summarise(
+        X = truncnorm::rtruncnorm(
+          group_size,
+          a = 0,
+          b = q^0.5,
+          X_ind - 0.5,
+          group_spread
+        ),
+        Y = truncnorm::rtruncnorm(
+          group_size,
+          a = 0,
+          b = q^0.5,
+          Y_ind - 0.5,
+          group_spread
+        ),
+        .groups = "drop"
+      ) |>
+      dplyr::mutate(Animal_ID = 1:tot_animals) |>
+      dplyr::mutate(
+        X = X * study_design$dx,
+        Y = Y * study_design$dy
+      )
+  } else {
+    animal.inds.0 <- tibble::tibble(
+      IC_index = sample(sample_idx, num_groups)
     ) |>
-    dplyr::mutate(Animal_ID = 1:tot_animals)
+      dplyr::mutate(
+        group_ID = 1:num_groups,
+        group_size = unlist(group_sizes)
+      ) |>
+      dplyr::left_join(
+        lscape_defs |>
+          dplyr::select(IC_index = Index, X_ind = X, Y_ind = Y),
+        by = dplyr::join_by(IC_index)
+      )
 
-  # Convert to x-y coords
-  animalxy.0 <- animalxy.0 |>
-    dplyr::mutate(
-      X = X * study_design$dx,
-      Y = Y * study_design$dy
-    )
+    # Initial animal placement
+    animalxy.0 <- animal.inds.0 |>
+      dplyr::group_by(group_ID) |>
+      dplyr::summarise(
+        X = truncnorm::rtruncnorm(group_size,
+          a = 0,
+          b = q^0.5,
+          X_ind - 0.5,
+          group_spread
+        ),
+        Y = truncnorm::rtruncnorm(group_size,
+          a = 0,
+          b = q^0.5,
+          Y_ind - 0.5,
+          group_spread
+        ),
+        .groups = "drop"
+      ) |>
+      dplyr::mutate(Animal_ID = 1:tot_animals) |>
+      dplyr::mutate(
+        X = X * study_design$dx,
+        Y = Y * study_design$dy
+      )
+  }
 
   return(animalxy.0)
 }

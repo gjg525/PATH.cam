@@ -4,7 +4,12 @@
 \alias{Collect_tele_data}
 \title{Calculate Residency Metrics from Telemetry Data}
 \usage{
-Collect_tele_data(animalxy.all, study_design, grouping = "Speed")
+Collect_tele_data(
+  animalxy.all,
+  study_design,
+  grouping = "Speed",
+  tele_sample = NULL
+)
 }
 \arguments{
 \item{animalxy.all}{A data frame of animal trajectories (output from \code{\link{ABM_sim}}).}
@@ -20,7 +25,7 @@ Collect_tele_data(animalxy.all, study_design, grouping = "Speed")
 (or that \code{lscape_type} can be renamed to it).}
 }
 \value{
-A data frame (tibble) sorted by the grouping variable in descending order, containing:
+A data frame (tibble) sorted to match \code{study_design$covariate_labels} order, containing:
 \itemize{
 \item The grouping column (e.g., \code{Speed}).
 \item \code{n}: The count of location fixes in that category.

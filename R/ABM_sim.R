@@ -58,11 +58,12 @@ ABM_sim <- function(
   dy <- study_design$dy
   q <- study_design$q
   t_steps <- study_design$t_steps
-  speeds <- matrix(lscape_defs$Value, q^0.5, q^0.5)
+  # speeds <- matrix(lscape_defs$Value, q^0.5, q^0.5)
   group_sizes <- unlist(study_design$group_sizes)
   group_spread <- study_design$group_spread
   dt <- study_design$dt
   bounds <- unlist(study_design$bounds)
+  h_range_strength <- unlist(study_design$h_range_strength)
 
   if (is.null(animalxy.0)) {
     # Place animals on landscape
@@ -98,6 +99,9 @@ ABM_sim <- function(
       dplyr::filter(group_ID == nc) |>
       dplyr::pull(activity_mat)
 
+    # Define home range center as anima's starting point
+    h_range_center <- c(group.par$X, group.par$Y)
+
     # Define group turning angle
     theta_group <- runif(1, 0, 2 * pi)
 
@@ -118,7 +122,7 @@ ABM_sim <- function(
       )
 
       # Define turning angles for all individuals
-      theta.all <- Rfast::rvonmises(group_size, theta_group, 20)
+      theta.all <- theta_group
 
       # Loop through all individuals in group
       for (ci in 1:group_size) {
@@ -135,14 +139,54 @@ ABM_sim <- function(
           Y.ind <- ceiling(group_Y[ci, i] * (q^0.5 / max(bounds)))
 
           # Determine movement speed in current space
-          # Note: Come back to define speeds with upper/lower bounds
-          # v <- speeds[X.ind, Y.ind]
+          tmp_speed <- lscape_defs$Value[lscape_defs$X == X.ind &
+                                           lscape_defs$Y == Y.ind]
+          # v <- tmp_speed
           v <- truncnorm::rtruncnorm(1,
                                      a = 0,
                                      b = Inf,
-                                     speeds[X.ind, Y.ind],
-                                     speeds[X.ind, Y.ind] / 10)
+                                     tmp_speed,
+                                     tmp_speed / 10)
           step.size <- v * t.step
+
+          if (!is.null(h_range_strength)) {
+            # Calculate distance to the home range center
+            dist_to_center <- sqrt(
+              (h_range_center[1] - group_X[ci, i])^2 +
+                (h_range_center[2] - group_Y[ci, i])^2
+            )
+
+            # Scale the pull strength based on distance
+            dynamic_strength <- h_range_strength[ci] * dist_to_center
+
+            # Calculate angle from individual to home range center
+            theta_h <- atan2(
+              h_range_center[2] - group_Y[ci, i],
+              h_range_center[1] - group_X[ci, i]
+            ) %% (2 * pi)
+
+            # Convert the CURRENT angle (Group/Landscape) to a Vector
+            v1_x <- cos(theta.all[ci])
+            v1_y <- sin(theta.all[ci])
+
+            # Convert Home Range angle to a Vector
+            v2_x <- cos(theta_h) * dynamic_strength
+            v2_y <- sin(theta_h) * dynamic_strength
+
+            # Add Vectors to get the new Mean Direction
+            avg_x <- v1_x + v2_x
+            avg_y <- v1_y + v2_y
+
+            # Convert back to an angle (Mean Direction)
+            mean_theta <- atan2(avg_y, avg_x) %% (2 * pi)
+
+            # Use individual's direction to determine direction
+            resultant_length <- sqrt(avg_x^2 + avg_y^2)
+
+            # Sample from Von Mises using weighted mean direction
+            theta.all[ci] <- Rfast::rvonmises(1, mean_theta, resultant_length)
+
+          }
 
           # Step length components
           dX <- step.size * cos(as.numeric(theta.all[ci]))
@@ -209,8 +253,11 @@ ABM_sim <- function(
             tx <- max(c(tx, 1))
             ty <- min(c(ty, q^0.5))
             ty <- max(c(ty, 1))
-            if (temp.X < (max(bounds)) & temp.X > (min(bounds)) &
-              temp.Y < (max(bounds)) & temp.Y > (min(bounds))
+
+            tmp_lscape_type <- lscape_defs$Speed[lscape_defs$X == tx & lscape_defs$Y == ty]
+
+            if (temp.X < max(bounds) & temp.X > min(bounds) &
+              temp.Y < max(bounds) & temp.Y > min(bounds) & tmp_lscape_type != "Water"
             ) {
               t.step <- t.step - sqrt((group_X[ci, i] - (temp.X))^2 +
                                         (group_Y[ci, i] - (temp.Y))^2) / v
@@ -228,7 +275,22 @@ ABM_sim <- function(
                 i * dt - t.step
               )
             } else {
-              if (temp.X >= (max(bounds)) || temp.X <= (min(bounds))) {
+              if (tmp_lscape_type == "Water") {
+                # Determine which side the individual crossed water boundary
+                if (r.length[int.ind, 1] == 0) {
+                  crossed_line <- "vertical"
+                } else if (r.length[int.ind, 2] == 0) {
+                  crossed_line <- "horizontal"
+                } else {
+                  crossed_line <- "diagonal or undefined"
+                }
+              } else {
+                crossed_line <- "other"
+              }
+
+              # Reflects off of vertical boundary
+              if (temp.X >= max(bounds) || temp.X <= min(bounds) ||
+                  crossed_line == "vertical") {
                 t.step <- t.step - sqrt((group_X[ci, i] - (temp.X))^2 +
                   (group_Y[ci, i] - (temp.Y))^2) / v
 
@@ -255,7 +317,9 @@ ABM_sim <- function(
                   theta_group <- theta.all[ci]
                 }
               }
-              if (temp.Y >= (max(bounds)) || temp.Y <= (min(bounds))) {
+              # Reflects off of horizontal boundary
+              if (temp.Y >= max(bounds) || temp.Y <= min(bounds) ||
+                  crossed_line == "horizontal") {
                 t.step <- t.step - sqrt((group_X[ci, i] - (temp.X))^2 +
                   (group_Y[ci, i] - (temp.Y))^2) / v
 
@@ -320,8 +384,18 @@ ABM_sim <- function(
   animalxy.all <- animalxy.all |>
     dplyr::ungroup() |>
     dplyr::mutate(
-      lscape_index = ceiling(animalxy.all$X / dx) +
-        floor(animalxy.all$Y / dx) * q^0.5,
+      X_idx = ceiling(X / dx),
+      Y_idx = ceiling(Y / dy)
+    ) |>
+    dplyr::left_join(
+      lscape_defs |>
+        dplyr::select(lscape_index = Index, X_idx = X, Y_idx = Y),
+      by = dplyr::join_by(X_idx, Y_idx)
+    ) |>
+    dplyr::select(-c(X_idx, Y_idx)) |>
+    dplyr::mutate(
+      # lscape_index = ceiling(animalxy.all$X / dx) +
+      #   floor(animalxy.all$Y / dx) * q^0.5,
       ii = 1:nrow(animalxy.all)
   ) |>
     dplyr::group_by(Animal_ID) |>
@@ -329,7 +403,8 @@ ABM_sim <- function(
       trav_dist = c(NA, sqrt((X[2:n()] - X[1:(n() - 1)])^2 +
         (Y[2:n()] - Y[1:(n() - 1)])^2)),
       trav_speeds = trav_dist / c(NA, t[2:n()] - t[1:(n() - 1)])
-    )
+    ) |>
+    dplyr::ungroup()
 
   # Escapee
   if (max(animalxy.all$X) > max(bounds) || min(animalxy.all$X) < min(bounds)) {

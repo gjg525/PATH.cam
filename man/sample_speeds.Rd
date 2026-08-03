@@ -4,7 +4,7 @@
 \alias{sample_speeds}
 \title{Sample Landscape Indices for Camera Placement}
 \usage{
-sample_speeds(cam.dist.prop = NULL, lscape_speeds)
+sample_speeds(cam.dist.prop = NULL, lscape_speeds, covariate_labels = NULL)
 }
 \arguments{
 \item{cam.dist.prop}{A list containing design parameters (equivalent to \code{cam_design}).}

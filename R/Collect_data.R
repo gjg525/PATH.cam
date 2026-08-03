@@ -29,11 +29,11 @@ get_cam_captures <- function(animalxy, cam_locs, study_design) {
     dplyr::ungroup() |>
     dplyr::filter(lscape_index %in% cam_locs$lscape_index) |>
     dplyr::mutate(pass_i = cumsum(c(1, (abs(ii[-n()] - ii[-1]) > 1) |
-      (abs(lscape_index[-n()] - lscape_index[-1]) > 0)))) |>
+                                      (abs(lscape_index[-n()] - lscape_index[-1]) > 0)))) |>
     dplyr::group_by(pass_i) |>
     dplyr::mutate(next_i = ifelse(max(t) == t_steps * dt,
-      max(ii),
-      max(ii) + 1
+                                  max(ii),
+                                  max(ii) + 1
     )) |>
     dplyr::ungroup()
 
@@ -44,7 +44,7 @@ get_cam_captures <- function(animalxy, cam_locs, study_design) {
         dplyr::ungroup() |>
         dplyr::filter(ii %in% unique(cell_captures$next_i)) |>
         dplyr::mutate(pass_i = unique(cell_captures$pass_i))
-      ) |>
+    ) |>
     dplyr::arrange(ii) |>
     dplyr::select(-next_i)
 
@@ -78,8 +78,8 @@ get_cam_captures <- function(animalxy, cam_locs, study_design) {
         cam_intersects = list(
           calc_intersects(
             matrix(unlist(xy_index),
-              nrow = length(unlist(xy_index)) / 2,
-              ncol = 2
+                   nrow = length(unlist(xy_index)) / 2,
+                   ncol = 2
             ),
             cbind(X, Y),
             trav_speeds,
@@ -131,9 +131,26 @@ get_cam_captures <- function(animalxy, cam_locs, study_design) {
 #' }
 #' @export
 #'
-get_count_data <- function(cam_locs, cam_captures, animalxy) {
-  count_data <- cam_captures |>
-    dplyr::filter(in_cam == T) |>
+get_count_data <- function(cam_locs, cam_captures, animalxy, seq_tbl = NULL) {
+
+  if (is.null(seq_tbl)) {
+    seq_tbl <- tibble::tibble(
+      val = seq(1, max(animalxy.all$t))
+    )
+  }
+
+  count_data <- cam_captures %>%
+    dplyr::group_by(lscape_index, pass_i) %>%
+    tidyr::fill(t_in, .direction = "down") %>%
+    tidyr::fill(t_out, .direction = "up") %>%
+    tidyr::drop_na(t_in, t_out) %>%
+    dplyr::distinct() %>%
+    dplyr::ungroup() %>%
+    dplyr::inner_join(seq_tbl, join_by(t_in <= val, t_out >= val))%>%
+    dplyr::group_by(lscape_index, pass_i, val) |>
+    dplyr::summarise(t = list(val), .groups = "drop") %>%
+    tidyr::unnest(t) |>
+    dplyr::distinct(lscape_index, pass_i, t) |>
     dplyr::group_by(lscape_index, t) |>
     dplyr::summarise(
       group_size = n(),
@@ -150,6 +167,25 @@ get_count_data <- function(cam_locs, cam_captures, animalxy) {
                      by = c("lscape_index")) |>
     dplyr::arrange(cam_ID) |>
     dplyr::mutate(count = replace(count, is.na(count), 0))
+
+  # count_data <- cam_captures |>
+  #   dplyr::filter(in_cam == T) |>
+  #   dplyr::group_by(lscape_index, t) |>
+  #   dplyr::summarise(
+  #     group_size = n(),
+  #     .groups = "drop"
+  #   ) |>
+  #   dplyr::group_by(lscape_index) |>
+  #   dplyr::summarise(
+  #     count = sum(group_size),
+  #     mean_group = mean(group_size),
+  #     .groups = "drop"
+  #   ) |>
+  #   dplyr::full_join(cam_locs |>
+  #                      select(cam_ID, lscape_index, Speed),
+  #                    by = c("lscape_index")) |>
+  #   dplyr::arrange(cam_ID) |>
+  #   dplyr::mutate(count = replace(count, is.na(count), 0))
 
   return(count_data)
 }

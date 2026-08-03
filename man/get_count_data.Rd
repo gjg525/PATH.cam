@@ -4,7 +4,7 @@
 \alias{get_count_data}
 \title{Aggregate Animal Counts per Camera}
 \usage{
-get_count_data(cam_locs, cam_captures, animalxy)
+get_count_data(cam_locs, cam_captures, animalxy, seq_tbl = NULL)
 }
 \arguments{
 \item{cam_locs}{A data frame of camera locations.}
