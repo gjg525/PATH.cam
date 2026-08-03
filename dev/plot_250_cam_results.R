@@ -40,8 +40,8 @@ D_all <- tibble::tibble()
 for (ii in 1:length(file_names)) {
   print(ii)
 
-  # file_ii <- paste0(sim_dir, design_names[ii], "_", ncams, "_cam_10min.RData")
-  file_ii <- paste0(sim_dir, design_names[ii], "_", ncams, "_cam.RData")
+  file_ii <- paste0(sim_dir, design_names[ii], "_", ncams, "_cam_10min.RData")
+  # file_ii <- paste0(sim_dir, design_names[ii], "_", ncams, "_cam.RData")
   if (file.exists(file_ii)) {
     all_results <- loadRData(file_ii)
 

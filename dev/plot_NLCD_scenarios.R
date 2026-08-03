@@ -2,72 +2,76 @@ library(dplyr)
 library(ggplot2)
 tot_animals <- 10
 
-sim_dir <- "G:/My Drive/Missoula_postdoc/PATH_model/sim_results_NLCD/"
+sim_dir <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_cam_results/"
 fig_dir <- "G:/My Drive/Missoula_postdoc/PATH_model/imgs/"
+save_dir <- "G:/My Drive/Missoula_postdoc/PATH_model/D_all_results/"
 
 fig_colors <- c("#1B5E20", "#00A8C6", "#FBC02D", "#E65100", "#8E44AD", "#4B6FAD", "#D81B60")
 ################################################################################
-# design_names <- c(
-#   "Random", "Slow_80_bias", "Medium_80_bias", "Fast_80_bias", "Slow_bias", "Medium_bias", "Fast_bias"
+design_names <- c(
+  "Random", "Slow_80_bias", "Medium_80_bias", "Fast_80_bias", "Slow_bias", "Medium_bias", "Fast_bias"
+)
+ncams <- 100
+# file_names <- c(
+#   "random",
+#   "slow",
+#   "med",
+#   "fast",
+#   "all_slow",
+#   "all_med",
+#   "all_fast"
 # )
-# ncams <- 100
-# # file_names <- c(
-# #   "random",
-# #   "slow",
-# #   "med",
-# #   "fast",
-# #   "all_slow",
-# #   "all_med",
-# #   "all_fast"
-# # )
-#
-# cam_designs <- c("Random", "Ag_bias", "Ag_all")
-# # Collect density estimates for from all results
-# # (This makes it easier to analyze)
-# loadRData <- function(fileName){
-#   #loads an RData file, and returns it
-#   load(fileName)
-#   get(ls()[ls() != "fileName"])
-# }
-#
-# source("./R/utils.R")
-# source("./R/plot_funs.R")
-#
-#
-# D_all_NLCD <- tibble::tibble()
-# for (ii in 1:length(cam_designs)) {
-#   print(ii)
-#   all_results <- loadRData(paste0(sim_dir,
-#                                   cam_designs[ii],
-#                                   "_",
-#                                   ncams,
-#                                   "_cam_NLCD.RData")
-#   )
-#
-#   D_all_NLCD <- dplyr::bind_rows(
-#     D_all_NLCD,
-#     all_results[[5]] %>%
-#       dplyr::bind_rows() |>
-#       dplyr::mutate(
-#         SampDesign = paste0(cam_designs[ii], "_cam")
-#       )
-#   )
-# }
-#
-# save(D_all_NLCD, file = paste0(
-#   sim_dir,
-#   "D_all_NLCD.RData")
-# )
+
+cam_designs <- c("Random", "Ag_bias", "Ag_all")
+# Collect density estimates for from all results
+# (This makes it easier to analyze)
+loadRData <- function(fileName){
+  #loads an RData file, and returns it
+  load(fileName)
+  get(ls()[ls() != "fileName"])
+}
+
+source("./R/utils.R")
+source("./R/plot_funs.R")
+
+
+D_all_NLCD <- tibble::tibble()
+for (ii in 1:length(cam_designs)) {
+  print(ii)
+  all_results <- loadRData(paste0(sim_dir,
+                                  cam_designs[ii],
+                                  "_",
+                                  ncams,
+                                  "_cam_NLCD.RData")
+  )
+
+  D_all_NLCD <- dplyr::bind_rows(
+    D_all_NLCD,
+    all_results[[5]] %>%
+      dplyr::bind_rows() |>
+      dplyr::mutate(
+        SampDesign = paste0(cam_designs[ii], "_cam")
+      )
+  )
+}
+
+D_all_NLCD |>
+  dplyr::count(Model, Covariate, SampDesign)
+
+save(D_all_NLCD, file = paste0(
+  save_dir,
+  "D_all_NLCD.RData")
+)
 
 #--------------------------------------------------
 
 load(paste0(
-  sim_dir,
+  save_dir,
   "D_all_NLCD.RData")
 )
 
 D_all <- D_all_NLCD %>%
-  dplyr::filter(Est < 250) |>
+  dplyr::filter(Est < 250 & Est > 0) |>
   dplyr::mutate(
     Model = ifelse(
       Covariate == "Covariate",
