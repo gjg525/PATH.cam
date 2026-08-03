@@ -330,12 +330,6 @@ for (cam_des in 1:nrow(all_designs)) {
         D.REST.MCMC <- sapply(REST_out, function(x) mean(x$tot_u, na.rm = TRUE))  #mean(chain.REST$tot_u[study_design$burn_in:study_design$n_iter])
         SD.REST.MCMC <- sapply(REST_out, function(x) sd(x$tot_u, na.rm = TRUE))  # sd(chain.REST$tot_u[study_design$burn_in:study_design$n_iter])
 
-        if(any(colMeans(chain.REST$accept[study_design$burn_in:study_design$n_iter,])< 0.2) || any(colMeans(chain.REST$accept[study_design$burn_in:study_design$n_iter,])> 0.7)){
-          warning(('REST accept rate OOB'))
-          D.REST.MCMC <- NA
-          SD.REST.MCMC <- NA
-        }
-
         ###################################
         # REST w/ covariates
         ###################################
@@ -362,10 +356,12 @@ for (cam_des in 1:nrow(all_designs)) {
         # Stop cluster
         stopCluster(my_cluster)
 
+        drop_names <- c("accept", "u")
+        keep_names <- setdiff(names(REST_cov_out[[1]]), drop_names)
         # Convert individual chains to 'mcmc' objects
-        c1 <- coda::as.mcmc(do.call(cbind, REST_cov_out[[1]][-grep("accept", names(REST_cov_out[[1]]))]))
-        c2 <- coda::as.mcmc(do.call(cbind, REST_cov_out[[2]][-grep("accept", names(REST_cov_out[[2]]))]))
-        c3 <- coda::as.mcmc(do.call(cbind, REST_cov_out[[3]][-grep("accept", names(REST_cov_out[[3]]))]))
+        c1 <- coda::as.mcmc(do.call(cbind, REST_cov_out[[1]][keep_names]))
+        c2 <- coda::as.mcmc(do.call(cbind, REST_cov_out[[2]][keep_names]))
+        c3 <- coda::as.mcmc(do.call(cbind, REST_cov_out[[3]][keep_names]))
 
         # Combine them into an 'mcmc.list'
         posterior_samples <- coda::mcmc.list(c1, c2, c3)
@@ -386,23 +382,18 @@ for (cam_des in 1:nrow(all_designs)) {
         D.REST.MCMC.cov <- sapply(REST_cov_out, function(x) mean(x$tot_u, na.rm = TRUE))  # mean(chain.REST.cov$tot_u[study_design$burn_in:study_design$n_iter])
         SD.REST.MCMC.cov <- sapply(REST_cov_out, function(x) mean(x$tot_u, na.rm = TRUE))  # sd(chain.REST.cov$tot_u[study_design$burn_in:study_design$n_iter])
 
-        if(any(colMeans(chain.REST.cov$accept[study_design$burn_in:study_design$n_iter,])< 0.2) ||
-           any(colMeans(chain.REST.cov$accept[study_design$burn_in:study_design$n_iter,])> 0.7)){
-          warning(('REST accept rate OOB'))
-          D.REST.MCMC.cov <- NA
-          SD.REST.MCMC.cov <- NA
-        }
-
       }
 
       ncam_temp <- cam_design$ncam
 
       D_all[[(run - 1) * 2 + 1]] <- tibble::tibble(
         iteration = run,
+        cam_design = cam_design$Design_name,
+        cams = ncam_temp,
         Model = "PATH",
         Covariate = "Non-Covariate",
-        Est = D.PATH.MCMC.habitat,
-        SD = SD.PATH.MCMC.habitat,
+        Est = list(D.PATH.MCMC),
+        SD = list(D.PATH.MCMC),
         max_Rhat = PATH_max_rhat,
         num_low_ess = length(PATH_ess_results[PATH_ess_results < 1000]),
         ess = list(PATH_ess_results)
@@ -415,8 +406,8 @@ for (cam_des in 1:nrow(all_designs)) {
         cams = ncam_temp,
         Model = "REST",
         Covariate = "Non-Covariate",
-        Est = D.REST.MCMC,
-        SD = SD.REST.MCMC,
+        Est = list(D.REST.MCMC),
+        SD = list(SD.REST.MCMC),
         max_Rhat = REST_max_rhat,
         num_low_ess = length(REST_ess_results[REST_ess_results < 1000]),
         ess = list(REST_ess_results)
@@ -428,8 +419,8 @@ for (cam_des in 1:nrow(all_designs)) {
         cams = ncam_temp,
         Model = "REST",
         Covariate = "Covariate",
-        Est = D.REST.MCMC.cov,
-        SD = SD.REST.MCMC.cov,
+        Est = list(D.REST.MCMC.cov),
+        SD = list(SD.REST.MCMC.cov),
         max_Rhat = REST_cov_max_rhat,
         num_low_ess = length(REST_cov_ess_results[REST_cov_ess_results < 1000]),
         ess = list(REST_cov_ess_results)
@@ -456,8 +447,8 @@ for (cam_des in 1:nrow(all_designs)) {
         cam_design = cam_design$Design_name,
         cams = ncam_temp,
         Model = "IS",
-        Est = IS_mean,
-        SD = SE_N
+        Est = list(IS_mean),
+        SD = list(SE_N)
         # all_results = list(chain.PR.habitat)
       )
 
