@@ -209,6 +209,39 @@ fit.model.mcmc.PATH <- function(study_design,
 ########################################
 # MCMC for REST no covariates
 ########################################
+#' Fit Landscape Density Model using MCMC
+#'
+#' @param study_design A list of simulation/study parameters. Must include:
+#' \itemize{
+#'   \item \code{n_iter}: Number of MCMC iterations.
+#'   \item \code{dx}, \code{dy}: Grid cell dimensions.
+#'   \item \code{t_steps}: Number of time steps.
+#'   \item \code{covariate_labels}: Names of the covariates (e.g., speed categories).
+#'   \item \code{num_covariates}: Integer count of covariates.
+#'   \item \code{Z}: Covariate design matrix.
+#'   \item \code{q}: Total number of grid cells.
+#' }
+#' @param cam_design A list containing camera design details, specifically
+#'   \code{cam_A} (area of camera view).
+#' @param gamma_start Vector of initial values for density coefficients.
+#' @param gamma_prior_var Numeric, variance for the Normal prior on gamma.
+#' @param gamma_tune Vector of initial tuning variances for gamma proposals.
+#' @param kappa_start Vector of initial values for staying time coefficients.
+#' @param kappa_prior_mu Vector of means for the Normal prior on kappa.
+#' @param kappa_prior_var Numeric, variance for the Normal prior on kappa.
+#' @param kappa_tune Vector of initial tuning variances for kappa proposals.
+#' @param encounter_data_in A data frame containing observed encounters
+#' @param stay_time_data_in A data frame containing observed staying time for each encounter.
+#'
+#' @return A list containing MCMC chains and diagnostics:
+#' \itemize{
+#'   \item \code{accept}: Matrix of acceptance (1/0) events for diagnostics.
+#'   \item \code{gamma}: Matrix of posterior samples for density coefficients.
+#'   \item \code{kappa}: Matrix of posterior samples for staying time coefficients.
+#'   \item \code{tot_u}: Vector of estimated total abundance/density across iterations.
+#' }
+#'
+#' @export
 fit.model.mcmc.REST <- function(study_design,
                                 cam_design,
                                 gamma_start,
@@ -336,6 +369,39 @@ fit.model.mcmc.REST <- function(study_design,
 ########################################
 # MCMC for REST w/ covariates
 ########################################
+#' Fit Landscape Density Model using MCMC
+#'
+#' @param study_design A list of simulation/study parameters. Must include:
+#' \itemize{
+#'   \item \code{n_iter}: Number of MCMC iterations.
+#'   \item \code{dx}, \code{dy}: Grid cell dimensions.
+#'   \item \code{t_steps}: Number of time steps.
+#'   \item \code{covariate_labels}: Names of the covariates (e.g., speed categories).
+#'   \item \code{num_covariates}: Integer count of covariates.
+#'   \item \code{Z}: Covariate design matrix.
+#'   \item \code{q}: Total number of grid cells.
+#' }
+#' @param cam_design A list containing camera design details, specifically
+#'   \code{cam_A} (area of camera view).
+#' @param gamma_start Vector of initial values for density coefficients.
+#' @param gamma_prior_var Numeric, variance for the Normal prior on gamma.
+#' @param gamma_tune Vector of initial tuning variances for gamma proposals.
+#' @param kappa_start Vector of initial values for staying time coefficients.
+#' @param kappa_prior_mu Vector of means for the Normal prior on kappa.
+#' @param kappa_prior_var Numeric, variance for the Normal prior on kappa.
+#' @param kappa_tune Vector of initial tuning variances for kappa proposals.
+#' @param encounter_data_in A data frame containing observed encounters
+#' @param stay_time_data_in A data frame containing observed staying time for each encounter.
+#'
+#' @return A list containing MCMC chains and diagnostics:
+#' \itemize{
+#'   \item \code{accept}: Matrix of acceptance (1/0) events for diagnostics.
+#'   \item \code{gamma}: Matrix of posterior samples for density coefficients.
+#'   \item \code{kappa}: Matrix of posterior samples for staying time coefficients.
+#'   \item \code{tot_u}: Vector of estimated total abundance/density across iterations.
+#' }
+#'
+#' @export
 fit.model.mcmc.REST.cov <- function(study_design,
                                     cam_design,
                                     cam_locs,
