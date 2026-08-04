@@ -84,7 +84,7 @@ study_design <- tibble::tibble(
   Initial_placement = list(c(0.8, 0, 0.2)),
   # Initial_placement = list(c(1, 0, 0)),
   # MCMC parms
-  num_runs = 1000,
+  num_runs = 50,
   n_iter = 40000,
   burn_in = 30000,
   covariate_labels = list(c("Agriculture", "Development", "Forest")) # don't include restricted habitats
@@ -150,7 +150,7 @@ all_designs <- tibble::tibble(
   )
 )
 
-for (cam_des in 2:nrow(all_designs)) {
+for (cam_des in 1:nrow(all_designs)) {
   for (cam in 1:length(cam_tests)) {
 
     # Cam designs
@@ -577,7 +577,7 @@ for (cam_des in 2:nrow(all_designs)) {
 
     rm(save_conv_test, D_all, D_all_REST)
   }
-[]}
+}
 
 # D_all <- dplyr::bind_rows(D_all) |>
 #   dplyr::bind_rows(D_all_REST)
