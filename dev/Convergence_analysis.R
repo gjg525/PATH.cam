@@ -26,7 +26,7 @@ study_design <- tibble::tibble(
   dy = 1,
   t_steps = 500, # Number of time steps
   dt = 1, # Time step size
-  t_censor = 2,
+  t_censor = 1/12,
   bounds = list(c(0, dx * q ^ 0.5)), # Sampling area boundaries
   tot_A = (bounds[[1]][2] - bounds[[1]][1])^2,
   num_groups = 100,
@@ -137,8 +137,8 @@ for (cam_des in 1:nrow(all_designs)) {
       # Use smallest stay time as reference category
       ref_cat_idx <- which(tele_summary$stay_prop == min(tele_summary$stay_prop))
 
-      # Set reference category for intercept
-      study_design$Z[[1]][, ref_cat_idx] <- 1
+      # # Set reference category for intercept
+      # study_design$Z[[1]][, ref_cat_idx] <- 1
 
       # Subtract reference category from stay time proportion
       prop_adjust <- tele_summary$stay_prop /
@@ -235,7 +235,7 @@ for (cam_des in 1:nrow(all_designs)) {
             cam_design = cam_design,
             cam_locs = cam_locs,
             gamma_start = rep(log(mean(count_data$count)), study_design$num_covariates),
-            gamma_prior_var = 10^4,
+            gamma_prior_var = 10,
             gamma_tune = rep(-1, study_design$num_covariates),
             kappa_start = log(exp(kappa.prior.mu) / sum(exp(kappa.prior.mu))),
             kappa_prior_mu = kappa.prior.mu,
@@ -311,8 +311,8 @@ for (cam_des in 1:nrow(all_designs)) {
             cam_design,
             gamma_start = log(mean(encounter_data)),
             kappa_start = log(mean(stay_time_data,na.rm=T)),
-            gamma_prior_var = 10^4,
-            kappa_prior_var = 10^4,
+            gamma_prior_var = 10,
+            kappa_prior_var = 10,
             gamma_tune = -1,
             kappa_tune = -1,
             encounter_data_in = encounter_data,
@@ -377,8 +377,8 @@ for (cam_des in 1:nrow(all_designs)) {
             cam_locs,
             gamma_start = rep(log(mean(encounter_data)), 3),
             kappa_start = rep(log(mean(stay_time_data,na.rm=T)), 3),
-            gamma_prior_var = 10^4,
-            kappa_prior_var = 10^4,
+            gamma_prior_var = 10,
+            kappa_prior_var = 10,
             gamma_tune = c(-1, -1, -1),
             kappa_tune = c(-1, -1, -1),
             encounter_data_in = encounter_data,

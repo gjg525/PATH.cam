@@ -8,7 +8,7 @@ library(gridExtra)
 library(doParallel)
 devtools::load_all()
 
-sim_dir <- "G:/My Drive/Missoula_postdoc/PATH_model/sim_results_NLCD/"
+sim_dir <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_cam_results/"
 
 # Initializations
 fig_colors <- c("#2ca25f", "#fc8d59", "#67a9cf", "#f768a1", "#bae4b3", "#fed98e")
@@ -74,7 +74,7 @@ study_design <- tibble::tibble(
   dy = 30,
   t_steps = 500, # Number of time steps
   dt = 1, # Time step size (hr)
-  t_censor = 2,
+  t_censor = 1/12,
   bounds = list(c(0, dx * q ^ 0.5)), # Sampling area boundaries
   tot_A = (bounds[[1]][2] - bounds[[1]][1])^2,
   num_groups = 10,
@@ -290,7 +290,7 @@ for (cam_des in 1:nrow(all_designs)) {
           cam_design = cam_design,
           cam_locs = cam_locs,
           gamma_start = rep(log(mean(count_data$count)), study_design$num_covariates),
-          gamma_prior_var = 10^4,
+          gamma_prior_var = 10,
           gamma_tune = rep(-1, study_design$num_covariates),
           kappa_start = log(exp(kappa.prior.mu) / sum(exp(kappa.prior.mu))),
           kappa_prior_mu = kappa.prior.mu,
@@ -325,8 +325,8 @@ for (cam_des in 1:nrow(all_designs)) {
           cam_design,
           gamma_start = log(mean(encounter_data)),
           kappa_start = log(mean(stay_time_data,na.rm=T)),
-          gamma_prior_var = 10^4,
-          kappa_prior_var = 10^4,
+          gamma_prior_var = 10,
+          kappa_prior_var = 10,
           gamma_tune = -1,
           kappa_tune = -1,
           encounter_data_in = encounter_data,
@@ -357,8 +357,8 @@ for (cam_des in 1:nrow(all_designs)) {
             cam_locs,
             gamma_start = rep(log(mean(encounter_data)), study_design$num_covariates),
             kappa_start = rep(log(mean(stay_time_data,na.rm=T)), study_design$num_covariates),
-            gamma_prior_var = 10^4,
-            kappa_prior_var = 10^4,
+            gamma_prior_var = 10,
+            kappa_prior_var = 10,
             gamma_tune = rep(-1, study_design$num_covariates),
             kappa_tune = rep(-1, study_design$num_covariates),
             encounter_data_in = encounter_data,
