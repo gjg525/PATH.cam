@@ -218,6 +218,11 @@ for (cam_des in 1:nrow(all_designs)) {
       stay_time_data <- get_stay_time_data(cam_locs, all_data$cam_captures[[run]])[[2]] |>
         as.matrix()
 
+      # t_stay_raw <- get_stay_time_data(cam_locs, all_data$cam_captures[[run]])[[1]]
+      # t_stay_raw |>
+      #   dplyr::group_by(Speed) |>
+      #   dplyr::summarise(mean_stay = mean(t_stay))
+
       all_data$encounter_data[[run]] <- list(encounter_data)
       all_data$stay_time_data[[run]] <- list(stay_time_data)
 
@@ -226,21 +231,35 @@ for (cam_des in 1:nrow(all_designs)) {
         D.PR.MCMC.habitat <- NA
         SD.PR.MCMC.habitat <- NA
       } else {
+        # chain.PATH <- fit.model.mcmc.PATH.NB(
+        #   study_design = study_design,
+        #   cam_design = cam_design,
+        #   cam_locs = cam_locs,
+        #   gamma_start = rep(log(mean(count_data$count)), study_design$num_covariates),
+        #   gamma_prior_var = 10,
+        #   gamma_tune = rep(-1, study_design$num_covariates),
+        #   kappa_start = log(exp(kappa.prior.mu) / sum(exp(kappa.prior.mu))),
+        #   kappa_prior_mu = kappa.prior.mu,
+        #   kappa_prior_var = kappa.prior.var,
+        #   kappa_tune = -1, #rep(-1, study_design$num_covariates),
+        #   count_data_in = count_data,
+        #   habitat_summary = habitat_summary
+        # )
+
         chain.PATH <- fit.model.mcmc.PATH(
           study_design = study_design,
           cam_design = cam_design,
           cam_locs = cam_locs,
           gamma_start = rep(log(mean(count_data$count)), study_design$num_covariates),
-          gamma_prior_var = 10^4,
+          gamma_prior_var = 10,
           gamma_tune = rep(-1, study_design$num_covariates),
           kappa_start = log(exp(kappa.prior.mu) / sum(exp(kappa.prior.mu))),
           kappa_prior_mu = kappa.prior.mu,
           kappa_prior_var = kappa.prior.var,
           kappa_tune = -1, #rep(-1, study_design$num_covariates),
           count_data_in = count_data,
-          habitat_summary
+          habitat_summary = habitat_summary
         )
-
         ## Posterior summaries
         # plot(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
         D.PATH.MCMC <- mean(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
@@ -293,6 +312,7 @@ for (cam_des in 1:nrow(all_designs)) {
         SD = SE_N
         # all_results = list(chain.PR.habitat)
       )
+      # print(paste("NB", mean(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter]), "Poisson", mean(chain.PATH.Pssn$tot_u[study_design$burn_in:study_design$n_iter]), "IS", IS_mean))
 
     }
 

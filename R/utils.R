@@ -319,7 +319,7 @@ create_covariate_mat <- function(lscape_defs, study_design, covariate_labels, gr
                 ncol = length(covariate_labels))
     for (zz in 1:length(covariate_labels)) {
       cov_vec <- lscape_defs |>
-        dplyr::filter(!!sym(grouping) == covariate_labels[zz]) %>%
+        dplyr::filter(!!ggplot2::sym(grouping) == covariate_labels[zz]) %>%
         dplyr::pull(Index)
       Z[cov_vec, zz] <- 1
     }
