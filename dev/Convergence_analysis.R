@@ -5,8 +5,8 @@ library(gridExtra)
 library(doParallel)
 devtools::load_all()
 
-sim_dir <- "G:/My Drive/Missoula_postdoc/PATH_model/sim_results/"
-save_dir <- "G:/My Drive/Missoula_postdoc/PATH_model/convergence_results/"
+sim_dir <- "C:/Users/guen.grosklos/Google Drive/Missoula_postdoc/PATH_model/sim_results/"
+save_dir <- "C:/Users/guen.grosklos/Google Drive/Missoula_postdoc/PATH_model/convergence_results/"
 
 # Initializations
 fig_colors <- c("#2ca25f", "#fc8d59", "#67a9cf", "#f768a1", "#bae4b3", "#fed98e")
@@ -137,8 +137,8 @@ for (cam_des in 1:nrow(all_designs)) {
       # Use smallest stay time as reference category
       ref_cat_idx <- which(tele_summary$stay_prop == min(tele_summary$stay_prop))
 
-      # Set reference category for intercept
-      study_design$Z[[1]][, ref_cat_idx] <- 1
+      # # Set reference category for intercept
+      # study_design$Z[[1]][, ref_cat_idx] <- 1
 
       # Subtract reference category from stay time proportion
       prop_adjust <- tele_summary$stay_prop /
@@ -249,9 +249,15 @@ for (cam_des in 1:nrow(all_designs)) {
         stopCluster(my_cluster)
 
         # Convert individual chains to 'mcmc' objects
-        c1 <- coda::as.mcmc(do.call(cbind, PATH_out[[1]][-grep("accept", names(PATH_out[[1]]))]))
-        c2 <- coda::as.mcmc(do.call(cbind, PATH_out[[2]][-grep("accept", names(PATH_out[[2]]))]))
-        c3 <- coda::as.mcmc(do.call(cbind, PATH_out[[3]][-grep("accept", names(PATH_out[[3]]))]))
+        c1 <- coda::as.mcmc(
+          do.call(cbind, PATH_out[[1]][-grep("accept", names(PATH_out[[1]]))])[-(1:study_design$burn_in),]
+        )
+        c2 <- coda::as.mcmc(
+          do.call(cbind, PATH_out[[2]][-grep("accept", names(PATH_out[[2]]))])[-(1:study_design$burn_in),]
+        )
+        c3 <- coda::as.mcmc(
+          do.call(cbind, PATH_out[[3]][-grep("accept", names(PATH_out[[3]]))])[-(1:study_design$burn_in),]
+        )
 
         # Combine them into an 'mcmc.list'
         posterior_samples <- coda::mcmc.list(c1, c2, c3)
@@ -263,9 +269,19 @@ for (cam_des in 1:nrow(all_designs)) {
         PATH_max_rhat <- max(gelman_results$psrf[, 1])
 
         # Calculate effective sample size
-        PATH_ess_results <- coda::effectiveSize(posterior_samples)
+        # PATH_ess_results <- coda::effectiveSize(posterior_samples)
         # bayesplot::mcmc_trace(window(posterior_samples, start = 1001))
 
+        PATH_ess_results <- tryCatch(
+          {
+            coda::effectiveSize(posterior_samples)
+          },
+          error = function(e) {
+            # If it fails, print a message (optional) and return NA
+            message("Skipping a column due to error: ", e$message)
+            return(NA)
+          }
+        )
         ## Posterior summaries
         # plot(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
         D.PATH.MCMC <- sapply(PATH_out, function(x) mean(x$tot_u, na.rm = TRUE))  #mean(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
@@ -307,9 +323,15 @@ for (cam_des in 1:nrow(all_designs)) {
         stopCluster(my_cluster)
 
         # Convert individual chains to 'mcmc' objects
-        c1 <- coda::as.mcmc(do.call(cbind, REST_out[[1]][-grep("accept", names(REST_out[[1]]))]))
-        c2 <- coda::as.mcmc(do.call(cbind, REST_out[[2]][-grep("accept", names(REST_out[[2]]))]))
-        c3 <- coda::as.mcmc(do.call(cbind, REST_out[[3]][-grep("accept", names(REST_out[[3]]))]))
+        c1 <- coda::as.mcmc(
+          do.call(cbind, REST_out[[1]][-grep("accept", names(REST_out[[1]]))])[-(1:study_design$burn_in),]
+        )
+        c2 <- coda::as.mcmc(
+          do.call(cbind, REST_out[[2]][-grep("accept", names(REST_out[[2]]))])[-(1:study_design$burn_in),]
+        )
+        c3 <- coda::as.mcmc(
+          do.call(cbind, REST_out[[3]][-grep("accept", names(REST_out[[3]]))])[-(1:study_design$burn_in),]
+        )
 
         # Combine them into an 'mcmc.list'
         posterior_samples <- coda::mcmc.list(c1, c2, c3)
@@ -321,8 +343,18 @@ for (cam_des in 1:nrow(all_designs)) {
         REST_max_rhat <- max(gelman_results$psrf[, 1])
 
         # Calculate effective sample size
-        REST_ess_results <- coda::effectiveSize(posterior_samples)
+        # REST_ess_results <- coda::effectiveSize(posterior_samples)
         # bayesplot::mcmc_trace(window(posterior_samples, start = 1001))
+        REST_ess_results <- tryCatch(
+          {
+            coda::effectiveSize(posterior_samples)
+          },
+          error = function(e) {
+            # If it fails, print a message (optional) and return NA
+            message("Skipping a column due to error: ", e$message)
+            return(NA)
+          }
+        )
 
 
         ## Posterior summaries
@@ -359,9 +391,15 @@ for (cam_des in 1:nrow(all_designs)) {
         drop_names <- c("accept", "u")
         keep_names <- setdiff(names(REST_cov_out[[1]]), drop_names)
         # Convert individual chains to 'mcmc' objects
-        c1 <- coda::as.mcmc(do.call(cbind, REST_cov_out[[1]][keep_names]))
-        c2 <- coda::as.mcmc(do.call(cbind, REST_cov_out[[2]][keep_names]))
-        c3 <- coda::as.mcmc(do.call(cbind, REST_cov_out[[3]][keep_names]))
+        c1 <- coda::as.mcmc(
+          do.call(cbind, REST_cov_out[[1]][keep_names])[-(1:study_design$burn_in),]
+        )
+        c2 <- coda::as.mcmc(
+          do.call(cbind, REST_cov_out[[2]][keep_names])[-(1:study_design$burn_in),]
+        )
+        c3 <- coda::as.mcmc(
+          do.call(cbind, REST_cov_out[[3]][keep_names])[-(1:study_design$burn_in),]
+        )
 
         # Combine them into an 'mcmc.list'
         posterior_samples <- coda::mcmc.list(c1, c2, c3)
@@ -373,8 +411,18 @@ for (cam_des in 1:nrow(all_designs)) {
         REST_cov_max_rhat <- max(gelman_results$psrf[, 1])
 
         # Calculate effective sample size
-        REST_cov_ess_results <- coda::effectiveSize(posterior_samples)
+        # REST_cov_ess_results <- coda::effectiveSize(posterior_samples)
         # bayesplot::mcmc_trace(window(posterior_samples, start = 1001))
+        REST_cov_ess_results <- tryCatch(
+          {
+            coda::effectiveSize(posterior_samples)
+          },
+          error = function(e) {
+            # If it fails, print a message (optional) and return NA
+            message("Skipping a column due to error: ", e$message)
+            return(NA)
+          }
+        )
 
 
         # ## Posterior summaries
