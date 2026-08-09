@@ -278,9 +278,7 @@ fit.model.mcmc.PATH.NB <- function(study_design,
                                 kappa_prior_mu,
                                 kappa_prior_var,
                                 kappa_tune,
-                                r_start = 1,
-                                r_prior_var = 1,
-                                r_tune = 0,
+                                r_fixed = 1,
                                 count_data_in,
                                 habitat_summary,
                                 grouping = "Speed") {
@@ -296,24 +294,19 @@ fit.model.mcmc.PATH.NB <- function(study_design,
   # Variables that will be saved
   gamma <- matrix(NA, n_iter + 1, num_covariates)
   kappa <- matrix(NA, n_iter + 1, num_covariates)
-  r_param <- matrix(NA, n_iter + 1, 1)
   tot_u <- matrix(NA, n_iter + 1, 1)
 
-  # accept matrix needs one more column for r
-  accept <- matrix(NA, n_iter + 1, num_covariates + 2)
+  accept <- matrix(NA, n_iter + 1, num_covariates + 1)
 
   gamma[1, ] <- gamma_start
   colnames(gamma) <- paste0("gamma.", covariate_labels)
   kappa[1, ] <- kappa_start
   colnames(kappa) <- paste0("kappa.", covariate_labels)
-  r_param[1] <- r_start
-  colnames(r_param) <- "r_dispersion"
   colnames(tot_u) <- "Total estimate"
 
   colnames(accept) <- c(
     paste0("accept.rate.gamma.", covariate_labels),
-    "accept.rate.kappa",
-    "accept.rate.r"
+    "accept.rate.kappa"
   )
 
   d <- exp(gamma[1, ])
@@ -349,10 +342,10 @@ fit.model.mcmc.PATH.NB <- function(study_design,
       }
 
       if (all(d_star > 0)) {
-        mh1 <- sum(dnbinom(count_data_in_h, size = r_param[i, 1], mu = d_star[gg], log = TRUE), na.rm = TRUE) +
+        mh1 <- sum(dnbinom(count_data_in_h, size = r_fixed, mu = d_star[gg], log = TRUE), na.rm = TRUE) +
           sum(dnorm(gamma_star[gg], 0, gamma_prior_var^0.5, log = TRUE))
 
-        mh2 <- sum(dnbinom(count_data_in_h, size = r_param[i, 1], mu = d[gg], log = TRUE), na.rm = TRUE) +
+        mh2 <- sum(dnbinom(count_data_in_h, size = r_fixed, mu = d[gg], log = TRUE), na.rm = TRUE) +
           sum(dnorm(gamma[i, gg], 0, gamma_prior_var^0.5, log = TRUE))
 
         mh <- exp(mh1 - mh2)
@@ -390,39 +383,6 @@ fit.model.mcmc.PATH.NB <- function(study_design,
     kappa[i + 1, ] <- kappa[i, ]
     stay_prop <- exp(kappa[i + 1, ])
 
-    # Sample r (Negative Binomial Dispersion Parameter)
-    log_r_current <- log(r_param[i, 1])
-    log_r_star <- rnorm(1, log_r_current, exp(2 * r_tune))
-    r_star <- exp(log_r_star)
-
-    # Build a vector of current means (mu) for all observations to evaluate overall dispersion
-    mu_vec <- rep(NA, nrow(count_data_in))
-    for(gg in 1:num_covariates) {
-      if (grouping == "Speed") {
-        idx <- count_data_in$Speed == covariate_labels[gg]
-      } else {
-        idx <- count_data_in$Road == covariate_labels[gg]
-      }
-      mu_vec[idx] <- d[gg]
-    }
-
-    # Calculate MH ratio for r using log-normal prior logic
-    mh1_r <- sum(dnbinom(count_data_in$count, size = r_star, mu = mu_vec, log = TRUE), na.rm = TRUE) +
-      dnorm(log_r_star, 0, r_prior_var^0.5, log = TRUE)
-
-    mh2_r <- sum(dnbinom(count_data_in$count, size = r_param[i, 1], mu = mu_vec, log = TRUE), na.rm = TRUE) +
-      dnorm(log_r_current, 0, r_prior_var^0.5, log = TRUE)
-
-    mh_r <- exp(mh1_r - mh2_r)
-
-    if (mh_r > runif(1) & !is.na(mh_r)) {
-      r_param[i + 1, 1] <- r_star
-      accept[i + 1, num_covariates + 2] <- 1
-    } else {
-      r_param[i + 1, 1] <- r_param[i, 1]
-      accept[i + 1, num_covariates + 2] <- 0
-    }
-
     # Calculate total abundance (u)
     u <- d * habitat_summary$n_lscape / stay_prop *
       habitat_summary$prop_cams / (cam_design$cam_A * t_steps / cam_design$snap_rate)
@@ -442,15 +402,10 @@ fit.model.mcmc.PATH.NB <- function(study_design,
       kappa_tune[accept_kappa_check > 0.44] <- kappa_tune[accept_kappa_check > 0.44] + delta_n
       kappa_tune[accept_kappa_check <= 0.44] <- kappa_tune[accept_kappa_check <= 0.44] - delta_n
 
-      # Tune r
-      accept_r_check <- mean(accept[(i - tune_check + 1):i, num_covariates + 2], na.rm = T)
-      r_tune[accept_r_check > 0.44] <- r_tune[accept_r_check > 0.44] + delta_n
-      r_tune[accept_r_check <= 0.44] <- r_tune[accept_r_check <= 0.44] - delta_n
     }
   }
 
-  # Return r_param along with everything else
-  list(accept = accept, gamma = gamma, kappa = kappa, r_param = r_param, tot_u = tot_u)
+  list(accept = accept, gamma = gamma, kappa = kappa, tot_u = tot_u)
 }
 
 ########################################
