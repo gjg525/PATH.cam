@@ -214,6 +214,18 @@ for (cam_des in 1:nrow(all_designs)) {
 
       all_data$count_data[[run]] <- list(count_data)
 
+      # Calculate global mean and variance of counts
+      m <- mean(count_data$count)
+      v <- var(count_data$count)
+
+      # Calculate r_fixed (with a safety net for underdispersion)
+      if (v > m) {
+        r_calculated <- m^2 / (v - m)
+      } else {
+        # set r to a very high number so it mathematically mimics a Poisson distribution.
+        r_calculated <- 1000
+      }
+
       encounter_data <- get_encounter_data(cam_locs, all_data$cam_captures[[run]])$encounter
       stay_time_data <- get_stay_time_data(cam_locs, all_data$cam_captures[[run]])[[2]] |>
         as.matrix()
@@ -231,7 +243,23 @@ for (cam_des in 1:nrow(all_designs)) {
         D.PR.MCMC.habitat <- NA
         SD.PR.MCMC.habitat <- NA
       } else {
-        # chain.PATH <- fit.model.mcmc.PATH.NB(
+        chain.PATH <- fit.model.mcmc.PATH.NB(
+          study_design = study_design,
+          cam_design = cam_design,
+          cam_locs = cam_locs,
+          gamma_start = rep(log(mean(count_data$count)), study_design$num_covariates),
+          gamma_prior_var = 10,
+          gamma_tune = rep(-1, study_design$num_covariates),
+          kappa_start = log(exp(kappa.prior.mu) / sum(exp(kappa.prior.mu))),
+          kappa_prior_mu = kappa.prior.mu,
+          kappa_prior_var = kappa.prior.var,
+          kappa_tune = -1, #rep(-1, study_design$num_covariates),
+          r_fixed = r_calculated,
+          count_data_in = count_data,
+          habitat_summary = habitat_summary
+        )
+
+        # chain.PATH <- fit.model.mcmc.PATH(
         #   study_design = study_design,
         #   cam_design = cam_design,
         #   cam_locs = cam_locs,
@@ -245,21 +273,6 @@ for (cam_des in 1:nrow(all_designs)) {
         #   count_data_in = count_data,
         #   habitat_summary = habitat_summary
         # )
-
-        chain.PATH <- fit.model.mcmc.PATH(
-          study_design = study_design,
-          cam_design = cam_design,
-          cam_locs = cam_locs,
-          gamma_start = rep(log(mean(count_data$count)), study_design$num_covariates),
-          gamma_prior_var = 10,
-          gamma_tune = rep(-1, study_design$num_covariates),
-          kappa_start = log(exp(kappa.prior.mu) / sum(exp(kappa.prior.mu))),
-          kappa_prior_mu = kappa.prior.mu,
-          kappa_prior_var = kappa.prior.var,
-          kappa_tune = -1, #rep(-1, study_design$num_covariates),
-          count_data_in = count_data,
-          habitat_summary = habitat_summary
-        )
         ## Posterior summaries
         # plot(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
         D.PATH.MCMC <- mean(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
