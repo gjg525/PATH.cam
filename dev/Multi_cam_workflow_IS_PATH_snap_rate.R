@@ -5,8 +5,8 @@ library(gridExtra)
 library(doParallel)
 devtools::load_all()
 
-sim_dir <- "G:/My Drive/Missoula_postdoc/PATH_model/sim_results/"
-sim_dir_REST <- "G:/My Drive/Missoula_postdoc/PATH_model/sim_results_REST/"
+sim_dir <- "C:/Users/guen.grosklos/Google Drive/Missoula_postdoc/PATH_model/sim_results/"
+sim_dir_REST <- "C:/Users/guen.grosklos/Google Drive/Missoula_postdoc/PATH_model/sim_results_REST/"
 
 # Initializations
 fig_colors <- c("#2ca25f", "#fc8d59", "#67a9cf", "#f768a1", "#bae4b3", "#fed98e")
@@ -14,7 +14,8 @@ options(ggplot2.discrete.colour = fig_colors)
 options(ggplot2.discrete.fill = fig_colors)
 
 # Run with different number of cameras
-cam_tests <- c(25, 50, 75, 100, 125, 250)
+# cam_tests <- c(25, 50, 75, 100, 125, 250)
+cam_tests <- 250
 
 # Load animal GPS data
 # load(file = paste0(sim_dir, "save_animal_data_1.RData"))
@@ -30,7 +31,7 @@ study_design <- tibble::tibble(
   dy = 1,
   t_steps = 500, # Number of time steps
   dt = 1, # Time step size
-  t_censor = 2,
+  t_censor = 1/12,
   bounds = list(c(0, dx * q ^ 0.5)), # Sampling area boundaries
   tot_A = (bounds[[1]][2] - bounds[[1]][1])^2,
   num_groups = 100,
