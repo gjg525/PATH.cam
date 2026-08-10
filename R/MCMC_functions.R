@@ -61,18 +61,18 @@
 #' @export
 #'
 fit.model.mcmc.PATH <- function(study_design,
-                                      cam_design,
-                                      cam_locs,
-                                      gamma_start,
-                                      gamma_prior_var = 10,
-                                      gamma_tune,
-                                      kappa_start,
-                                      kappa_prior_mu,
-                                      kappa_prior_var,
-                                      kappa_tune,
-                                      count_data_in,
-                                      habitat_summary,
-                                      grouping = "Speed") {
+                                cam_design,
+                                cam_locs,
+                                gamma_start,
+                                gamma_prior_var = 10,
+                                gamma_tune,
+                                kappa_start,
+                                kappa_prior_mu,
+                                kappa_prior_var,
+                                kappa_tune,
+                                count_data_in,
+                                habitat_summary,
+                                grouping = "Speed") {
 
   n_iter <- study_design$n_iter
   cam_A <- cam_design$cam_A
@@ -269,19 +269,19 @@ fit.model.mcmc.PATH <- function(study_design,
 #' @export
 #'
 fit.model.mcmc.PATH.NB <- function(study_design,
-                                cam_design,
-                                cam_locs,
-                                gamma_start,
-                                gamma_prior_var = 10,
-                                gamma_tune,
-                                kappa_start,
-                                kappa_prior_mu,
-                                kappa_prior_var,
-                                kappa_tune,
-                                r_fixed = 1,
-                                count_data_in,
-                                habitat_summary,
-                                grouping = "Speed") {
+                                   cam_design,
+                                   cam_locs,
+                                   gamma_start,
+                                   gamma_prior_var = 10,
+                                   gamma_tune,
+                                   kappa_start,
+                                   kappa_prior_mu,
+                                   kappa_prior_var,
+                                   kappa_tune,
+                                   r_fixed = 1,
+                                   count_data_in,
+                                   habitat_summary,
+                                   grouping = "Speed") {
 
   n_iter <- study_design$n_iter
   cam_A <- cam_design$cam_A
@@ -342,10 +342,10 @@ fit.model.mcmc.PATH.NB <- function(study_design,
       }
 
       if (all(d_star > 0)) {
-        mh1 <- sum(dnbinom(count_data_in_h, size = r_fixed, mu = d_star[gg], log = TRUE), na.rm = TRUE) +
+        mh1 <- sum(dnbinom(count_data_in_h, size = r_fixed[gg], mu = d_star[gg], log = TRUE), na.rm = TRUE) +
           sum(dnorm(gamma_star[gg], 0, gamma_prior_var^0.5, log = TRUE))
 
-        mh2 <- sum(dnbinom(count_data_in_h, size = r_fixed, mu = d[gg], log = TRUE), na.rm = TRUE) +
+        mh2 <- sum(dnbinom(count_data_in_h, size = r_fixed[gg], mu = d[gg], log = TRUE), na.rm = TRUE) +
           sum(dnorm(gamma[i, gg], 0, gamma_prior_var^0.5, log = TRUE))
 
         mh <- exp(mh1 - mh2)
