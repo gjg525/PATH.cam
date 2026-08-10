@@ -140,7 +140,7 @@ get_count_data <- function(cam_locs, cam_captures, animalxy, seq_tbl = NULL) {
   }
 
   count_data <- cam_captures %>%
-    dplyr::group_by(lscape_index, pass_i) %>%
+    dplyr::group_by(lscape_index, pass_i, encounter) %>%
     tidyr::fill(t_in, .direction = "down") %>%
     tidyr::fill(t_out, .direction = "up") %>%
     tidyr::drop_na(t_in, t_out) %>%

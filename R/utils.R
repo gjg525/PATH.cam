@@ -38,7 +38,7 @@ create_cam_samp_design <- function(study_design,
     cam.dist.prop = cam_design,
     lscape_speeds = lscape_defs,
     covariate_labels = unlist(study_design$covariate_labels)
-    )
+  )
 
   cam_locs <- tibble::tibble(
     cam_ID = 1:cam_design$ncam,
@@ -59,9 +59,9 @@ create_cam_samp_design <- function(study_design,
     dplyr::summarise(
       lscape_index = lscape_index,
       x = list(runif(1, x + cam_length * 0.5 + 0.01 * dx, x + dx - cam_length * 0.5 - 0.01 * dx) +
-        c(0, -0.5 * cam_length, 0.5 * cam_length)),
+                 c(0, -0.5 * cam_length, 0.5 * cam_length)),
       y = list(runif(1, y + .01 * dy, y + dx - cam_length - 0.01 * dy) +
-        c(0, cam_length, cam_length)),
+                 c(0, cam_length, cam_length)),
       vertex = list(c(1, 2, 3)),
       cam_area = calc_tri_area(unlist(x), unlist(y)),
       .groups = "drop"
@@ -235,16 +235,16 @@ place_animals <- function(study_design, lscape_defs) {
       dplyr::group_by(group_ID) |>
       dplyr::summarise(
         X = truncnorm::rtruncnorm(group_size,
-          a = 0,
-          b = q^0.5,
-          X_ind - 0.5,
-          group_spread
+                                  a = 0,
+                                  b = q^0.5,
+                                  X_ind - 0.5,
+                                  group_spread
         ),
         Y = truncnorm::rtruncnorm(group_size,
-          a = 0,
-          b = q^0.5,
-          Y_ind - 0.5,
-          group_spread
+                                  a = 0,
+                                  b = q^0.5,
+                                  Y_ind - 0.5,
+                                  group_spread
         ),
         .groups = "drop"
       ) |>
@@ -270,8 +270,8 @@ place_animals <- function(study_design, lscape_defs) {
 #' @return The `animalxy.0` data frame with an added `activity_mat` column.
 create_activity_mat <- function(study_design,
                                 animalxy.0) {
-    animalxy.0 <- animalxy.0 |>
-      dplyr::mutate(activity_mat = list(rep(1, study_design$t_steps)))
+  animalxy.0 <- animalxy.0 |>
+    dplyr::mutate(activity_mat = list(rep(1, study_design$t_steps)))
 }
 
 #' Extract Unique Covariate Levels
@@ -377,8 +377,8 @@ calc_in_triangle <- function(p_viewshed, point) {
   pos_vals <- (A_1 > 0) || (A_2 > 0) || (A_3 > 0)
 
   in_triangle <- ifelse(!(neg_vals && pos_vals),
-    TRUE,
-    FALSE
+                        TRUE,
+                        FALSE
   )
 }
 
@@ -463,7 +463,7 @@ calc_intersects <- function(p_viewshed, p_animal, speed, t) {
 
         # Find distance from start point to intersection
         dist_1 <- sqrt((X.temp - p_animal[nn, 1])^2 +
-          (Y.temp - p_animal[nn, 2])^2)
+                         (Y.temp - p_animal[nn, 2])^2)
 
         # Calculate time spent in camera
         t_tot <- ifelse(speed[nn + 1] > 0,
@@ -480,7 +480,7 @@ calc_intersects <- function(p_viewshed, p_animal, speed, t) {
 
         # Find distance from start point to end point
         dist_1 <- sqrt((p_animal[nn + 1, 1] - p_animal[nn, 1])^2 +
-          (p_animal[nn + 1, 2] - p_animal[nn, 2])^2)
+                         (p_animal[nn + 1, 2] - p_animal[nn, 2])^2)
 
         # Calculate time spent in camera
         t_tot <- ifelse(speed[nn + 1] > 0,
@@ -504,7 +504,7 @@ calc_intersects <- function(p_viewshed, p_animal, speed, t) {
 
         # Find distance from intersection to end point
         dist_1 <- sqrt((p_animal[nn + 1, 1] - X.temp)^2 +
-          (p_animal[nn + 1, 2] - Y.temp)^2)
+                         (p_animal[nn + 1, 2] - Y.temp)^2)
 
         # Calculate time spent in camera
         t_tot <- ifelse(speed[nn + 1] > 0,
@@ -513,7 +513,7 @@ calc_intersects <- function(p_viewshed, p_animal, speed, t) {
 
         # Find distance from start point to intersection
         dist_2 <- sqrt((p_animal[nn, 1] - X.temp)^2 +
-          (p_animal[nn, 2] - Y.temp)^2)
+                         (p_animal[nn, 2] - Y.temp)^2)
 
         # Calculate enter/exit times
         t_in <- t[nn] + ifelse(speed[nn + 1] > 0,
@@ -529,13 +529,16 @@ calc_intersects <- function(p_viewshed, p_animal, speed, t) {
         # Individual passes through camera
         int.ind <- which(int.check == T)
 
+        # Sort intersections by 'a' so we process entry first, then exit
+        int.ind <- int.ind[order(a[int.ind])]
+
         # X,Y coordinates at intersection
         X.temp <- p_viewshed[int.ind, 1] + b[int.ind] * r.length[int.ind, 1]
         Y.temp <- p_viewshed[int.ind, 2] + b[int.ind] * r.length[int.ind, 2]
 
         # Find distance between points of intersection
         dist_1 <- sqrt((X.temp[1] - X.temp[2])^2 +
-          (Y.temp[1] - Y.temp[2])^2)
+                         (Y.temp[1] - Y.temp[2])^2)
 
         # Calculate time spent in camera
         t_tot <- ifelse(speed[nn + 1] > 0,
@@ -544,7 +547,7 @@ calc_intersects <- function(p_viewshed, p_animal, speed, t) {
 
         # Find distance from start point to first intersection
         dist_2 <- sqrt((p_animal[nn, 1] - X.temp[1])^2 +
-          (p_animal[nn, 2] - Y.temp[1])^2)
+                         (p_animal[nn, 2] - Y.temp[1])^2)
 
         # Calculate enter/exit times
         t_in <- t[nn] + ifelse(speed[nn + 1] > 0,
