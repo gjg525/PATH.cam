@@ -1,5 +1,26 @@
-# TODO:
-#  - Run PATH, IS, and REST random, then PATH and REST with full and 80% concentration in high-dens habitat
+################################################################################
+# Custom abm simulation parameters
+tot_N <- 10
+
+# # Full correlated walk
+# sim_name <- "Correlated"
+# init_placement <- NULL
+# home_range_strength <- NULL
+# corr_strength <- 3
+#
+# # Full home range walks
+# sim_name <- "Home Range"
+# home_range_strength <- list(stats::runif(tot_N, 0.0005, 0.01))
+# init_placement <- list(c(0.8, 0, 0.2))
+# corr_strength <- 0
+
+# Hybrid correlated walk / home range (60/40 split)
+sim_name <- "Hybrid"
+home_range_strength <- list(stats::runif(tot_N, 0.0005, 0.01))
+init_placement <- list(c(4/6, 0, 2/6))
+corr_strength <- 0
+
+################################################################################
 
 library(tidyverse)
 library(RColorBrewer)
@@ -23,8 +44,6 @@ tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5010NLC
 mu_base <- tibble::tibble(
   LandCover = c("Water", "Development", "Forest", "Agriculture"),
   Mu = c(4, 2, 0.02, 0.5),
-  # speed = 4 * Mu * 900 / 30 / 30 * 8,
-  # speed = c(0, 2, 0.08, 0.5) * 30, # Manually set km/hr to cell/hr
   speed = c(0, 1.5, 0.7, 0.3) * 30, # Manually set km/hr and convert to cell/hr
   speed_km_hr = 4 * Mu * 900 / 30 / 1000
 )
@@ -77,13 +96,13 @@ study_design <- tibble::tibble(
   t_censor = 1/12,
   bounds = list(c(0, dx * q ^ 0.5)), # Sampling area boundaries
   tot_A = (bounds[[1]][2] - bounds[[1]][1])^2,
-  num_groups = 10,
+  num_groups = tot_N,
   group_sizes = list(rep(1, num_groups)),
   group_spread = 0, # Tightness of grouping behavior (relative to grid size)
-  h_range_strength = list(stats::runif(num_groups, 0.0005, 0.01)),
+  h_range_strength = home_range_strength,
   tot_animals = sum(unlist(group_sizes)),
-  Initial_placement = list(c(0.8, 0, 0.2)),
-  # Initial_placement = list(c(1, 0, 0)),
+  Initial_placement = init_placement,
+  corr_strength = corr_strength,
   # MCMC parms
   num_runs = 1000,
   n_iter = 40000,
@@ -151,6 +170,27 @@ all_designs <- tibble::tibble(
   )
 )
 
+if (sim_name == "Hybrid") {
+  # Define study design for correlated walk animals
+  study_design_2 <- study_design |>
+    dplyr::mutate(
+      num_groups = 4,
+      group_sizes = list(rep(1, num_groups)),
+      h_range_strength = NULL,
+      tot_animals = sum(unlist(group_sizes)),
+      Initial_placement = NULL,
+      corr_strength = 3
+    )
+
+  # Adjust original study design
+  study_design <- study_design |>
+    dplyr::mutate(
+      num_groups = 6,
+      group_sizes = list(rep(1, num_groups)),
+      tot_animals = sum(unlist(group_sizes))
+    )
+}
+
 for (cam_des in 1:nrow(all_designs)) {
   for (cam in 1:length(cam_tests)) {
 
@@ -158,7 +198,7 @@ for (cam_des in 1:nrow(all_designs)) {
     # aim for cam_A ~ 50 - 100 m^2
     cam_design <- tibble::tibble(
       ncam = cam_tests[cam],
-      snap_rate = 1 / 6, # snapshot rate (hours)
+      snap_rate = 1 / 12, # snapshot rate (hours)
       Design_name = all_designs$Design_name[cam_des],
       Design = all_designs$Design[cam_des],
       Props = all_designs$Props[cam_des],
@@ -188,6 +228,19 @@ for (cam_des in 1:nrow(all_designs)) {
       # Run agent-based model
       animalxy.all <- ABM_sim(study_design,
                               lscape_defs)
+
+      if (sim_name == "Hybrid") {
+        animalxy.all.2 <- ABM_sim(study_design_2,
+                                lscape_defs) |>
+          dplyr::mutate(
+            Animal_ID = Animal_ID + max(animalxy.all$Animal_ID),
+            group_ID = group_ID + max(animalxy.all$group_ID),
+            ii = ii + max(animalxy.all$ii),
+          )
+
+        animalxy.all <- animalxy.all |>
+          dplyr::bind_rows(animalxy.all.2)
+      }
 
       tele_summary <- Collect_tele_data(animalxy.all, study_design, tele_sample = tele_sample)
 
@@ -312,7 +365,7 @@ for (cam_des in 1:nrow(all_designs)) {
         }
       }
 
-################################################################################
+      ################################################################################
       if (sum(encounter_data) == 0) {
         D.REST.MCMC <- NA
         SD.REST.MCMC <- NA
@@ -436,6 +489,16 @@ for (cam_des in 1:nrow(all_designs)) {
         SD = SE_N
       )
 
+      if (run %in% seq(1, 1000, 20)) {
+        D_all |>
+          dplyr::bind_rows() |>
+          dplyr::group_by(Model) |>
+          dplyr::summarise(
+            Mean = median(Est)
+          ) |>
+          print()
+
+      }
     }
 
     D_all <- dplyr::bind_rows(D_all) |>
@@ -453,7 +516,7 @@ for (cam_des in 1:nrow(all_designs)) {
                                      cam_design$Design_name,
                                      "_",
                                      cam_design$ncam,
-                                     "_cam_NLCD.RData")
+                                     "_cam_NLCD", sim_name, ".RData")
     )
 
     rm(save_results, all_data, D_all)
@@ -490,10 +553,10 @@ plot_multirun_sds(D_all %>%
 #                    dplyr::filter(is.finite(Est)))
 # plot_multirun_hist(D_all)
 
-# plot_ABM(study_design,
-#          cam_design,
-#          cam_locs,
-#          animalxy.all)
+plot_ABM(study_design,
+         cam_design,
+         cam_locs,
+         animalxy.all)
 plot_ABM_2(study_design, lscape_defs, animalxy.all)
 # plot_ABM_2(study_design, lscape_defs, animalxy.all |> dplyr::filter(Animal_ID == 1))
 plot_space_use(study_design,
