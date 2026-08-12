@@ -2,6 +2,12 @@
 # Custom abm simulation parameters
 tot_N <- 10
 
+# Full correlated walk
+sim_name <- "Random"
+init_placement <- NULL
+home_range_strength <- NULL
+corr_strength <- 0
+#
 # # Full correlated walk
 # sim_name <- "Correlated"
 # init_placement <- NULL
@@ -14,11 +20,11 @@ tot_N <- 10
 # init_placement <- list(c(0.8, 0, 0.2))
 # corr_strength <- 0
 
-# Hybrid correlated walk / home range (60/40 split)
-sim_name <- "Hybrid"
-home_range_strength <- list(stats::runif(tot_N, 0.0005, 0.01))
-init_placement <- list(c(4/6, 0, 2/6))
-corr_strength <- 0
+# # Hybrid correlated walk / home range (60/40 split)
+# sim_name <- "Hybrid"
+# home_range_strength <- list(stats::runif(tot_N, 0.0005, 0.01))
+# init_placement <- list(c(4/6, 0, 2/6))
+# corr_strength <- 0
 
 ################################################################################
 
@@ -78,7 +84,7 @@ df <- df |>
 # Run with different number of cameras
 # cam_tests <- c(25, 50, 75, 100, 125)
 # cam_tests <- c(50, 75, 100)
-cam_tests <- c(50)
+cam_tests <- c(100)
 
 # tele_sample <- NULL
 tele_sample <- tibble::tibble(
@@ -165,7 +171,7 @@ all_designs <- tibble::tibble(
   Design =c("Random", "Bias", "Bias"),
   Props = c(
     list(c(1, 1, 1)),
-    list(c(0.8, 0, 0)),
+    list(c(0.8, 0, 0.2)),
     list(c(1, 0, 0))
   )
 )
@@ -198,17 +204,21 @@ for (cam_des in 1:nrow(all_designs)) {
     # aim for cam_A ~ 50 - 100 m^2
     cam_design <- tibble::tibble(
       ncam = cam_tests[cam],
-      snap_rate = 1 / 12, # snapshot rate (hours)
+      snap_rate = 1 / 6, # snapshot rate (hours)
       Design_name = all_designs$Design_name[cam_des],
       Design = all_designs$Design[cam_des],
       Props = all_designs$Props[cam_des],
-      cam_length = 0.02 * 30, #  study_design$dx  * 0.5, # length of all viewshed sides
+      cam_length = 0.02 * 30, # study_design$dx  * 0.5, # length of all viewshed sides
       cam_A = cam_length ^ 2 / 2,
       tot_snaps = ncam * study_design$t_steps / snap_rate
     )
 
+    seq_tbl <- tibble::tibble(
+      val = seq(1, study_design$t_steps, by = cam_design$snap_rate)
+    )
+
     # Initialize summary matrices
-    D_all <- vector(mode = "list", length = study_design$num_runs * 2)
+    D_all <- vector(mode = "list", length = study_design$num_runs * 3)
     D_all_REST <- vector(mode = "list", length = study_design$num_runs * 2)
 
     all_data <- tibble::tibble(
@@ -217,7 +227,11 @@ for (cam_des in 1:nrow(all_designs)) {
       count_data = NA,
       encounter_data = NA,
       stay_time_all = NA,
-      stay_time_data = NA
+      stay_time_data = NA,
+      tele_summary = NA,
+      tele_summary_full = NA,
+      habitat_summary = NA,
+      habitat_summary_full = NA
     )
 
     # Multi-run simulations
@@ -242,38 +256,32 @@ for (cam_des in 1:nrow(all_designs)) {
           dplyr::bind_rows(animalxy.all.2)
       }
 
+      # Collect telemetry data
       tele_summary <- Collect_tele_data(animalxy.all, study_design, tele_sample = tele_sample)
 
-      # Use largest stay time as reference category
-      ref_cat_idx <- which(tele_summary$stay_prop == min(tele_summary$stay_prop))
-
-      # Set reference category for intercept
-      study_design$Z[[1]][, ref_cat_idx] <- 1
-
       # Subtract reference category from stay time proportion
-      # prop_adjust <- tele_summary$stay_prop /
-      #   tele_summary$stay_prop[ref_cat_idx]
-      # prop_adjust[ref_cat_idx] <- tele_summary$stay_prop[ref_cat_idx]
-      # kappa.prior.mu.adj <- log(prop_adjust)
       kappa.prior.mu <- log(tele_summary$stay_prop)
       kappa.prior.var <- tele_summary$stay_sd^2 # stay_time_summary$cell_sd ^ 2
 
+      # Collect telemetry data for all animals and time steps
+      tele_summary_full <- Collect_tele_data(
+        animalxy.all,
+        study_design,
+        tele_sample = NULL)
+
+      # Subtract reference category from stay time proportion
+      kappa.prior.mu_full <- log(tele_summary_full$stay_prop)
+      kappa.prior.var_full <- tele_summary_full$stay_sd^2 # stay_time_summary$cell_sd ^ 2
+
+      ################################
+      # Collect data
+      ################################
       # Place cameras on study area
       cam_locs <- create_cam_samp_design(study_design,
                                          lscape_defs,
                                          cam_design)
 
-      ################################
-      # Collect data
-      ################################
-      "%notin%" <- Negate("%in%")
-      all_data$cam_captures[run] <- list(get_cam_captures(
-        animalxy.all %>%
-          dplyr::filter(t != 0),
-        cam_locs,
-        study_design
-      ))
-
+      # Define efforts for each habitat
       habitat_summary <- lscape_defs %>%
         dplyr::filter(Speed != "Water") |>
         dplyr::group_by(Speed) %>%
@@ -299,7 +307,7 @@ for (cam_des in 1:nrow(all_designs)) {
           d_coeff = n_lscape * prop_cams / stay_prop / (cam_design$cam_A * study_design$t_steps)
         ) %>%
         replace(is.na(.), 0) %>%
-        dplyr::select(Speed, n_lscape, prop_cams, d_coeff) %>%
+        dplyr::select(Speed, n_lscape, ncams, prop_cams, d_coeff) %>%
         dplyr::arrange(match(Speed, unlist(study_design$covariate_labels)))
 
       habitat_summary$Speed <- factor(
@@ -307,9 +315,46 @@ for (cam_des in 1:nrow(all_designs)) {
         levels = unlist(study_design$covariate_labels)
       )
 
-      seq_tbl <- tibble::tibble(
-        val = seq(1, study_design$t_steps, by = cam_design$snap_rate)
+      habitat_summary_full <- lscape_defs %>%
+        dplyr::filter(Speed != "Water") |>
+        dplyr::group_by(Speed) %>%
+        dplyr::summarise(
+          n_lscape = dplyr::n() * study_design$dx * study_design$dy # Area of each habitat
+        ) %>%
+        dplyr::ungroup() %>%
+        dplyr::left_join(
+          cam_locs %>%
+            dplyr::group_by(Speed) %>%
+            dplyr::summarise(
+              ncams = dplyr::n(),
+              .groups = 'drop'
+            ),
+          by = dplyr::join_by(Speed)
+        ) %>%
+        dplyr::left_join(
+          tele_summary_full,
+          by = dplyr::join_by(Speed)
+        ) %>%
+        dplyr::mutate(
+          prop_cams = ncams / sum(ncams, na.rm = T),
+          d_coeff = n_lscape * prop_cams / stay_prop / (cam_design$cam_A * study_design$t_steps)
+        ) %>%
+        replace(is.na(.), 0) %>%
+        dplyr::select(Speed, n_lscape, ncams, prop_cams, d_coeff) %>%
+        dplyr::arrange(match(Speed, unlist(study_design$covariate_labels)))
+
+      habitat_summary_full$Speed <- factor(
+        habitat_summary_full$Speed,
+        levels = unlist(study_design$covariate_labels)
       )
+
+      "%notin%" <- Negate("%in%")
+      all_data$cam_captures[run] <- list(get_cam_captures(
+        animalxy.all %>%
+          dplyr::filter(t != 0),
+        cam_locs,
+        study_design
+      ))
 
       count_data <- get_count_data(
         cam_locs,
@@ -332,12 +377,44 @@ for (cam_des in 1:nrow(all_designs)) {
 
       all_data$encounter_data[[run]] <- list(encounter_data)
       all_data$stay_time_data[[run]] <- list(stay_time_data)
+      all_data$tele_summary[[run]] <- list(tele_summary)
+      all_data$tele_summary_full[[run]] <- list(tele_summary_full)
+      all_data$habitat_summary[[run]] <- list(habitat_summary)
+      all_data$habitat_summary_full[[run]] <- list(habitat_summary_full)
 
       # Run models only if any data points were collected
       if (sum(count_data$count) == 0 | length(kappa.prior.mu) != study_design$num_covariates) {
+        D.PATH.MCMC.full <- NA
+        SD.PATH.MCMC.full <- NA
         D.PATH.MCMC <- NA
         SD.PATH.MCMC <- NA
       } else {
+        chain.PATH.full <- fit.model.mcmc.PATH(
+          study_design = study_design,
+          cam_design = cam_design,
+          cam_locs = cam_locs,
+          gamma_start = rep(log(mean(count_data$count)), study_design$num_covariates),
+          gamma_prior_var = 1,
+          gamma_tune = rep(-1, study_design$num_covariates),
+          kappa_start = log(exp(kappa.prior.mu_full) / sum(exp(kappa.prior.mu_full))),
+          kappa_prior_mu = kappa.prior.mu_full,
+          kappa_prior_var = kappa.prior.var_full,
+          kappa_tune = -1, #rep(-1, study_design$num_covariates),
+          count_data_in = count_data,
+          habitat_summary_full
+        )
+
+        ## Posterior summaries
+        # plot(chain.PATH.full$tot_u[study_design$burn_in:study_design$n_iter])
+        D.PATH.MCMC.full <- mean(chain.PATH.full$tot_u[study_design$burn_in:study_design$n_iter])
+        SD.PATH.MCMC.full <- sd(chain.PATH.full$tot_u[study_design$burn_in:study_design$n_iter])
+
+        if (any(colMeans(chain.PATH.full$accept[study_design$burn_in:study_design$n_iter, ]) < 0.2) || any(colMeans(chain.PATH.full$accept[study_design$burn_in:study_design$n_iter, ]) > 0.7)) {
+          warning(("Mean Count accept rate OOB"))
+          D.PATH.MCMC.full <- NA
+          SD.PATH.MCMC.full <- NA
+        }
+
         chain.PATH <- fit.model.mcmc.PATH(
           study_design = study_design,
           cam_design = cam_design,
@@ -363,6 +440,7 @@ for (cam_des in 1:nrow(all_designs)) {
           D.PATH.MCMC <- NA
           SD.PATH.MCMC <- NA
         }
+
       }
 
       ################################################################################
@@ -432,7 +510,7 @@ for (cam_des in 1:nrow(all_designs)) {
         }
       }
 
-      D_all[[(run - 1) * 2 + 1]] <- tibble::tibble(
+      D_all[[(run - 1) * 3 + 1]] <- tibble::tibble(
         iteration = run,
         design = cam_design$Design_name,
         cams = cam_design$ncam,
@@ -440,6 +518,16 @@ for (cam_des in 1:nrow(all_designs)) {
         Covariate = "Non-Covariate",
         Est = D.PATH.MCMC,
         SD = SD.PATH.MCMC
+      )
+
+      D_all[[(run - 1) * 3 + 2]] <- tibble::tibble(
+        iteration = run,
+        design = cam_design$Design_name,
+        cams = cam_design$ncam,
+        Model = "PATH",
+        Covariate = "Full Tele",
+        Est = D.PATH.MCMC.full,
+        SD = SD.PATH.MCMC.full
       )
 
       D_all_REST[[(run - 1) * 2 + 1]] <- tibble::tibble(
@@ -479,7 +567,7 @@ for (cam_des in 1:nrow(all_designs)) {
       form <- sprintf("~ %f * x1", study_design$tot_A)
       SE_N = msm::deltamethod(as.formula(form), IS_mean / study_design$tot_A, IS_var)
 
-      D_all[[run * 2]] <- tibble::tibble(
+      D_all[[run * 3]] <- tibble::tibble(
         iteration = run,
         design = cam_design$Design_name,
         cams = cam_design$ncam,
@@ -492,9 +580,10 @@ for (cam_des in 1:nrow(all_designs)) {
       if (run %in% seq(1, 1000, 20)) {
         D_all |>
           dplyr::bind_rows() |>
-          dplyr::group_by(Model) |>
+          dplyr::bind_rows(D_all_REST) |>
+          dplyr::group_by(Model, Covariate) |>
           dplyr::summarise(
-            Mean = median(Est)
+            Mean = mean(Est, na.rm = T)
           ) |>
           print()
 
