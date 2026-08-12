@@ -341,17 +341,12 @@ D_all_separated %>%
 #--------------------------------------------------
 # Try all in one plot?
 D_all %>%
-  dplyr::filter(Est < 250) %>%
+  # dplyr::filter(Est < 250) %>%
   dplyr::mutate(
     SampDesign = dplyr::case_when(
-      SampDesign == "slow_cam" ~ "80% High",
-      SampDesign == "med_cam" ~ "80% Moderate",
-      SampDesign == "fast_cam" ~ "80% Low",
-      SampDesign == "all_slow_cam" ~ "100% High",
-      SampDesign == "all_med_cam" ~ "100% Moderate",
-      SampDesign == "all_fast_cam" ~ "100% Low",
+      SampDesign == "Ag_bias_cam" ~ "80% Agriculture",
+      SampDesign == "Ag_all_cam" ~ "100% Agriculture",
       .default = "Random"
-
     )
   ) %>%
   ggplot2::ggplot(ggplot2::aes(x = Model, y = Est, fill = SampDesign)) +
@@ -377,14 +372,9 @@ D_all %>%
   dplyr::filter(Est < 250) %>%
   dplyr::mutate(
     SampDesign = dplyr::case_when(
-      SampDesign == "slow_cam" ~ "80% High",
-      SampDesign == "med_cam" ~ "80% Moderate",
-      SampDesign == "fast_cam" ~ "80% Low",
-      SampDesign == "all_slow_cam" ~ "100% High",
-      SampDesign == "all_med_cam" ~ "100% Moderate",
-      SampDesign == "all_fast_cam" ~ "100% Low",
+      SampDesign == "Ag_bias_cam" ~ "80% Agriculture",
+      SampDesign == "Ag_all_cam" ~ "100% Agriculture",
       .default = "Random"
-
     )
   ) %>%
   ggplot2::ggplot(ggplot2::aes(x = Model, y = SD / Est, fill = SampDesign)) +
