@@ -14,9 +14,8 @@ options(ggplot2.discrete.colour = fig_colors)
 options(ggplot2.discrete.fill = fig_colors)
 
 # Run with different number of cameras
-cam_tests <- c(25, 50, 75, 100, 125)
-# cam_tests <- c(50, 75, 100)
-# cam_tests <- c(100)
+# cam_tests <- c(25, 50, 75, 100, 125)
+cam_tests <- c(250)
 
 # Load animal GPS data
 # load(file = paste0(sim_dir, "save_animal_data_1.RData"))
@@ -35,7 +34,7 @@ study_design <- tibble::tibble(
   t_censor = 1/12,
   bounds = list(c(0, dx * q ^ 0.5)), # Sampling area boundaries
   tot_A = (bounds[[1]][2] - bounds[[1]][1])^2,
-  num_groups = 100,
+  num_groups = 100, # 100,
   group_sizes = list(rep(1, num_groups)),
   group_spread = 0, # Tightness of grouping behavior (relative to grid size)
   tot_animals = sum(unlist(group_sizes)),
@@ -69,23 +68,8 @@ all_designs <- tibble::tibble(
     list(c(0, 0, 1))
   )
 )
-# # Design for single run with 250 cameras
-cam_tests <- 250
-all_designs <- tibble::tibble(
-  Design_name = c("Random", "Slow_80_bias", "Med_80_bias", "Fast_80_bias",
-                  "Slow_bias", "Med_bias", "Fast_bias"),
-  Design =c("Random", "Bias", "Bias", "Bias", "Bias", "Bias", "Bias"),
-  Props = c(
-    list(c(1, 1, 1)),
-    list(c(.8, .1, .1)),
-    list(c(.1, .8, .1)),
-    list(c(.1, .1, .8)),
-    list(c(1, 0, 0)),
-    list(c(0, 1, 0)),
-    list(c(0, 0, 1))
-  )
-)
-for (cam_des in 5:nrow(all_designs)) {
+
+for (cam_des in 1:nrow(all_designs)) {
   for (cam in 1:length(cam_tests)) {
 
     # Cam designs
@@ -140,7 +124,8 @@ for (cam_des in 5:nrow(all_designs)) {
 
       # Load ABM from save file
       animalxy.all <- save_animal_data$data[[(run - 1) %% 100 + 1]] %>%
-        dplyr::rename(Road = road)
+        dplyr::rename(Road = road) %>%
+        dplyr::filter(Animal_ID %in% 1:study_design$tot_animals)
       lscape_defs <- save_lscape_defs$data[[run]]
 
       # Create covariate matrix with 0, 1 values
@@ -269,7 +254,7 @@ for (cam_des in 5:nrow(all_designs)) {
           SD.PATH.MCMC <- NA
         }
       }
-        ################################################################################
+      ################################################################################
       if (sum(encounter_data) == 0) {
         D.REST.MCMC <- NA
         SD.REST.MCMC <- NA
@@ -366,8 +351,9 @@ for (cam_des in 5:nrow(all_designs)) {
 
       ################################################################################
       # IS method
-      IS_mean <- sum(count_data$count) / study_design$t_steps / cam_design$ncam /
-        cam_design$cam_A * study_design$tot_A
+      tot_snaps <- study_design$t_steps / cam_design$snap_rate * cam_design$ncam
+      IS_mean <- sum(count_data$count) * study_design$tot_A /
+        (tot_snaps * cam_design$cam_A)
 
       M <- cam_design$ncam
       J <- study_design$t_steps
@@ -392,24 +378,24 @@ for (cam_des in 5:nrow(all_designs)) {
 
     }
 
-    # save_results <- list(
-    #   # save_animal_data,
-    #   study_design,
-    #   cam_design,
-    #   lscape_design,
-    #   all_data,
-    #   D_all
-    # )
-    #
-    # save(save_results, file = paste0(sim_dir,
-    #                                  cam_design$Design_name,
-    #                                  "_",
-    #                                  cam_design$ncam,
-    #                                  "_cam.RData")
-    # )
+    save_results <- list(
+      # save_animal_data,
+      study_design,
+      cam_design,
+      lscape_design,
+      all_data,
+      D_all
+    )
 
-    # rm(save_results, all_data, D_all)
-    rm(all_data, D_all)
+    save(save_results, file = paste0(sim_dir,
+                                     cam_design$Design_name,
+                                     "_",
+                                     cam_design$ncam,
+                                     "_cam.RData")
+    )
+
+    rm(save_results, all_data, D_all)
+    # rm(all_data, D_all)
 
     save_results_REST <- list(
       study_design,
@@ -419,10 +405,10 @@ for (cam_des in 5:nrow(all_designs)) {
     )
 
     save(save_results_REST, file = paste0(sim_dir_REST,
-                                     cam_design$Design_name,
-                                     "_",
-                                     cam_design$ncam,
-                                     "_cam_REST.RData")
+                                          cam_design$Design_name,
+                                          "_",
+                                          cam_design$ncam,
+                                          "_cam_REST.RData")
     )
 
     rm(save_results_REST, D_all_REST)
