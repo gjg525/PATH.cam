@@ -15,6 +15,7 @@ options(ggplot2.discrete.fill = fig_colors)
 
 # Run with different number of cameras
 cam_tests <- c(25, 50, 75, 100, 125, 250)
+# cam_tests <- c(250)
 
 # Load animal GPS data
 # load(file = paste0(sim_dir, "save_animal_data_1.RData"))
@@ -74,7 +75,7 @@ for (cam_des in 1:nrow(all_designs)) {
     # Cam designs
     cam_design <- tibble::tibble(
       ncam = cam_tests[cam],
-      snap_rate = 1 / 6, # snapshot rate (hours)
+      snap_rate = 1/6, # snapshot rate (hours)
       Design_name = all_designs$Design_name[cam_des],
       Design = all_designs$Design[cam_des],
       Props = all_designs$Props[cam_des],
@@ -123,7 +124,8 @@ for (cam_des in 1:nrow(all_designs)) {
 
       # Load ABM from save file
       animalxy.all <- save_animal_data$data[[(run - 1) %% 100 + 1]] %>%
-        dplyr::rename(Road = road)
+        dplyr::rename(Road = road) #|>
+        # dplyr::filter(t <= study_design$t_steps)
       lscape_defs <- save_lscape_defs$data[[run]]
 
       # Create covariate matrix with 0, 1 values
@@ -189,7 +191,7 @@ for (cam_des in 1:nrow(all_designs)) {
         ) %>%
         dplyr::mutate(
           prop_cams = ncams / sum(ncams, na.rm = T),
-          d_coeff = n_lscape * prop_cams / stay_prop / (cam_design$cam_A * study_design$t_steps)
+          d_coeff = n_lscape * prop_cams / stay_prop / (cam_design$cam_A * study_design$t_steps / cam_design$snap_rate)
         ) %>%
         replace(is.na(.), 0) %>%
         dplyr::select(Speed, n_lscape, prop_cams, d_coeff) %>%
@@ -214,17 +216,33 @@ for (cam_des in 1:nrow(all_designs)) {
 
       all_data$count_data[[run]] <- list(count_data)
 
-      # Calculate global mean and variance of counts
-      m <- mean(count_data$count)
-      v <- var(count_data$count)
-
-      # Calculate r_fixed (with a safety net for underdispersion)
-      if (v > m) {
-        r_calculated <- m^2 / (v - m)
-      } else {
-        # set r to a very high number so it mathematically mimics a Poisson distribution.
-        r_calculated <- 1000
-      }
+      # # Calculate global mean and variance of counts
+      # r_calculated <- count_data |>
+      #   dplyr::group_by(Speed) |>
+      #   dplyr::summarise(
+      #     m = mean(count),
+      #     v = var(count),
+      #     r_calculated = ifelse(
+      #       v > m,
+      #       m^2 / (v - m),
+      #       1000
+      #     ),
+      #     .groups = 'drop'
+      #   ) |>
+      #   tidyr::complete(Speed = unlist(study_design$covariate_labels),
+      #                   fill = list(r_calculated = 1000)) %>%
+      #   dplyr::arrange(match(Speed, unlist(study_design$covariate_labels))) |>
+      #   dplyr::pull(r_calculated)
+      # m <- mean(count_data$count)
+      # v <- var(count_data$count)
+      #
+      # # Calculate r_fixed (with a safety net for underdispersion)
+      # if (v > m) {
+      #   r_calculated <- m^2 / (v - m)
+      # } else {
+      #   # set r to a very high number so it mathematically mimics a Poisson distribution.
+      #   r_calculated <- 1000
+      # }
 
       encounter_data <- get_encounter_data(cam_locs, all_data$cam_captures[[run]])$encounter
       stay_time_data <- get_stay_time_data(cam_locs, all_data$cam_captures[[run]])[[2]] |>
@@ -243,23 +261,7 @@ for (cam_des in 1:nrow(all_designs)) {
         D.PR.MCMC.habitat <- NA
         SD.PR.MCMC.habitat <- NA
       } else {
-        chain.PATH <- fit.model.mcmc.PATH.NB(
-          study_design = study_design,
-          cam_design = cam_design,
-          cam_locs = cam_locs,
-          gamma_start = rep(log(mean(count_data$count)), study_design$num_covariates),
-          gamma_prior_var = 10,
-          gamma_tune = rep(-1, study_design$num_covariates),
-          kappa_start = log(exp(kappa.prior.mu) / sum(exp(kappa.prior.mu))),
-          kappa_prior_mu = kappa.prior.mu,
-          kappa_prior_var = kappa.prior.var,
-          kappa_tune = -1, #rep(-1, study_design$num_covariates),
-          r_fixed = r_calculated,
-          count_data_in = count_data,
-          habitat_summary = habitat_summary
-        )
-
-        # chain.PATH <- fit.model.mcmc.PATH(
+        # chain.PATH <- fit.model.mcmc.PATH.NB(
         #   study_design = study_design,
         #   cam_design = cam_design,
         #   cam_locs = cam_locs,
@@ -270,9 +272,25 @@ for (cam_des in 1:nrow(all_designs)) {
         #   kappa_prior_mu = kappa.prior.mu,
         #   kappa_prior_var = kappa.prior.var,
         #   kappa_tune = -1, #rep(-1, study_design$num_covariates),
+        #   r_fixed = r_calculated,
         #   count_data_in = count_data,
         #   habitat_summary = habitat_summary
         # )
+
+        chain.PATH <- fit.model.mcmc.PATH(
+          study_design = study_design,
+          cam_design = cam_design,
+          cam_locs = cam_locs,
+          gamma_start = rep(log(mean(count_data$count)), study_design$num_covariates),
+          gamma_prior_var = 10,
+          gamma_tune = rep(-1, study_design$num_covariates),
+          kappa_start = log(exp(kappa.prior.mu) / sum(exp(kappa.prior.mu))),
+          kappa_prior_mu = kappa.prior.mu,
+          kappa_prior_var = kappa.prior.var,
+          kappa_tune = -1, #rep(-1, study_design$num_covariates),
+          count_data_in = count_data,
+          habitat_summary = habitat_summary
+        )
         ## Posterior summaries
         # plot(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
         D.PATH.MCMC <- mean(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
@@ -325,7 +343,17 @@ for (cam_des in 1:nrow(all_designs)) {
         SD = SE_N
         # all_results = list(chain.PR.habitat)
       )
-      # print(paste("NB", mean(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter]), "Poisson", mean(chain.PATH.Pssn$tot_u[study_design$burn_in:study_design$n_iter]), "IS", IS_mean))
+
+      if (run %in% seq(1, 1000, 20)) {
+        D_all |>
+          dplyr::bind_rows() |>
+          dplyr::group_by(Model) |>
+          dplyr::summarise(
+            Mean = mean(Est, na.rm = T),
+            Median = median(Est, na.rm = T)
+          ) |>
+          print()
+      }
 
     }
 
@@ -342,7 +370,7 @@ for (cam_des in 1:nrow(all_designs)) {
                                      cam_design$Design_name,
                                      "_",
                                      cam_design$ncam,
-                                     "_cam_10min.RData")
+                                     "_cam_10min2.RData")
     )
 
     rm(save_results, all_data, D_all)

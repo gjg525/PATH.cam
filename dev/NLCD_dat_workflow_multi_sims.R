@@ -97,9 +97,9 @@ study_design <- tibble::tibble(
   q = 30^2, # Number grid cells
   dx = 30,  # Grid cell lengths (m)
   dy = 30,
-  t_steps = 500, # Number of time steps
+  t_steps = 1000, # Number of time steps
   dt = 1, # Time step size (hr)
-  t_censor = 1/12,
+  t_censor = 1,
   bounds = list(c(0, dx * q ^ 0.5)), # Sampling area boundaries
   tot_A = (bounds[[1]][2] - bounds[[1]][1])^2,
   num_groups = tot_N,
@@ -208,7 +208,7 @@ for (cam_des in 1:nrow(all_designs)) {
       Design_name = all_designs$Design_name[cam_des],
       Design = all_designs$Design[cam_des],
       Props = all_designs$Props[cam_des],
-      cam_length = 0.02 * 30, # study_design$dx  * 0.5, # length of all viewshed sides
+      cam_length = 0.01 * 30, # study_design$dx  * 0.5, # length of all viewshed sides
       cam_A = cam_length ^ 2 / 2,
       tot_snaps = ncam * study_design$t_steps / snap_rate
     )
@@ -583,7 +583,8 @@ for (cam_des in 1:nrow(all_designs)) {
           dplyr::bind_rows(D_all_REST) |>
           dplyr::group_by(Model, Covariate) |>
           dplyr::summarise(
-            Mean = mean(Est, na.rm = T)
+            Mean = mean(Est, na.rm = T),
+            Median = median(Est, na.rm = T)
           ) |>
           print()
 
