@@ -15,6 +15,7 @@ options(ggplot2.discrete.fill = fig_colors)
 
 # Run with different number of cameras
 cam_tests <- c(25, 50, 75, 100, 125, 250)
+# cam_tests <- c(250)
 
 # Load animal GPS data
 # load(file = paste0(sim_dir, "save_animal_data_1.RData"))
@@ -348,7 +349,12 @@ for (cam_des in 1:nrow(all_designs)) {
           dplyr::bind_rows() |>
           dplyr::group_by(Model) |>
           dplyr::summarise(
+<<<<<<< HEAD
             Mean = mean(Est)
+=======
+            Mean = mean(Est, na.rm = T),
+            Median = median(Est, na.rm = T)
+>>>>>>> 531d85469b485db0abb803042cb0d25ead1a6545
           ) |>
           print()
       }
@@ -368,7 +374,7 @@ for (cam_des in 1:nrow(all_designs)) {
                                      cam_design$Design_name,
                                      "_",
                                      cam_design$ncam,
-                                     "_cam_10min.RData")
+                                     "_cam_10min2.RData")
     )
 
     rm(save_results, all_data, D_all)

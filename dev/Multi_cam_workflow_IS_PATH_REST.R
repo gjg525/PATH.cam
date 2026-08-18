@@ -34,7 +34,7 @@ study_design <- tibble::tibble(
   t_censor = 2,
   bounds = list(c(0, dx * q ^ 0.5)), # Sampling area boundaries
   tot_A = (bounds[[1]][2] - bounds[[1]][1])^2,
-  num_groups = 100,
+  num_groups = 100, # 100,
   group_sizes = list(rep(1, num_groups)),
   group_spread = 0, # Tightness of grouping behavior (relative to grid size)
   tot_animals = sum(unlist(group_sizes)),
@@ -224,6 +224,7 @@ for (cam_des in 1:nrow(all_designs)) {
       all_data$stay_time_data[[run]] <- list(stay_time_data)
 
       # Run models only if any data points were collected
+<<<<<<< HEAD
       # if (sum(count_data$count) == 0) {
         D.PATH.MCMC <- NA
         SD.PATH.MCMC <- NA
@@ -254,6 +255,38 @@ for (cam_des in 1:nrow(all_designs)) {
       #     SD.PATH.MCMC <- NA
       #   }
       # }
+=======
+      if (sum(count_data$count) == 0) {
+        D.PR.MCMC.habitat <- NA
+        SD.PR.MCMC.habitat <- NA
+      } else {
+        chain.PATH <- fit.model.mcmc.PATH(
+          study_design = study_design,
+          cam_design = cam_design,
+          cam_locs = cam_locs,
+          gamma_start = rep(log(mean(count_data$count)), study_design$num_covariates),
+          gamma_prior_var = 10,
+          gamma_tune = rep(-1, study_design$num_covariates),
+          kappa_start = log(exp(kappa.prior.mu) / sum(exp(kappa.prior.mu))),
+          kappa_prior_mu = kappa.prior.mu,
+          kappa_prior_var = kappa.prior.var,
+          kappa_tune = -1, #rep(-1, study_design$num_covariates),
+          count_data_in = count_data,
+          habitat_summary
+        )
+
+        ## Posterior summaries
+        # plot(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
+        D.PATH.MCMC <- mean(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
+        SD.PATH.MCMC <- sd(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
+
+        if (any(colMeans(chain.PATH$accept[study_design$burn_in:study_design$n_iter, ]) < 0.2) || any(colMeans(chain.PATH$accept[study_design$burn_in:study_design$n_iter, ]) > 0.7)) {
+          warning(("Mean Count accept rate OOB"))
+          D.PATH.MCMC <- NA
+          SD.PATH.MCMC <- NA
+        }
+      }
+>>>>>>> 531d85469b485db0abb803042cb0d25ead1a6545
       ################################################################################
       if (sum(encounter_data) == 0) {
         D.REST.MCMC <- NA
@@ -387,22 +420,25 @@ for (cam_des in 1:nrow(all_designs)) {
       }
     }
 
-    # save_results <- list(
-    #   # save_animal_data,
-    #   study_design,
-    #   cam_design,
-    #   lscape_design,
-    #   all_data,
-    #   D_all
-    # )
-    #
-    # save(save_results, file = paste0(sim_dir,
-    #                                  cam_design$Design_name,
-    #                                  "_",
-    #                                  cam_design$ncam,
-    #                                  "_cam.RData")
-    # )
+    save_results <- list(
+      # save_animal_data,
+      study_design,
+      cam_design,
+      lscape_design,
+      all_data,
+      D_all
+    )
 
+<<<<<<< HEAD
+=======
+    save(save_results, file = paste0(sim_dir,
+                                     cam_design$Design_name,
+                                     "_",
+                                     cam_design$ncam,
+                                     "_cam.RData")
+    )
+
+>>>>>>> 531d85469b485db0abb803042cb0d25ead1a6545
     rm(save_results, all_data, D_all)
     # rm(all_data, D_all)
 

@@ -2,11 +2,19 @@
 # Custom abm simulation parameters
 tot_N <- 10
 
+<<<<<<< HEAD
 # # Full correlated walk
 # sim_name <- "Random"
 # init_placement <- NULL
 # home_range_strength <- NULL
 # corr_strength <- 0
+=======
+# Full correlated walk
+sim_name <- "Random"
+init_placement <- NULL
+home_range_strength <- NULL
+corr_strength <- 0
+>>>>>>> 531d85469b485db0abb803042cb0d25ead1a6545
 #
 # # Full correlated walk
 # sim_name <- "Correlated"
@@ -14,11 +22,19 @@ tot_N <- 10
 # home_range_strength <- NULL
 # corr_strength <- 3
 #
+<<<<<<< HEAD
 # Full home range walks
 sim_name <- "Home Range"
 home_range_strength <- list(stats::runif(tot_N, 0.0005, 0.01))
 init_placement <- list(c(0.8, 0, 0.2))
 corr_strength <- 0
+=======
+# # Full home range walks
+# sim_name <- "Home Range"
+# home_range_strength <- list(stats::runif(tot_N, 0.0005, 0.01))
+# init_placement <- list(c(0.8, 0, 0.2))
+# corr_strength <- 0
+>>>>>>> 531d85469b485db0abb803042cb0d25ead1a6545
 
 # # Hybrid correlated walk / home range (60/40 split)
 # sim_name <- "Hybrid"
@@ -35,7 +51,11 @@ library(gridExtra)
 library(doParallel)
 devtools::load_all()
 
+<<<<<<< HEAD
 sim_dir <- "C:/Users/guen.grosklos/Google Drive/Missoula_postdoc/PATH_model/NLCD_cam_results/"
+=======
+sim_dir <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_cam_results/"
+>>>>>>> 531d85469b485db0abb803042cb0d25ead1a6545
 
 # Initializations
 fig_colors <- c("#2ca25f", "#fc8d59", "#67a9cf", "#f768a1", "#bae4b3", "#fed98e")
@@ -44,8 +64,13 @@ options(ggplot2.discrete.fill = fig_colors)
 
 ################################################################################
 # Load NLCD data set
+<<<<<<< HEAD
 # tif_filename <- "C:/Users/guen.grosklos/Google Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5000NLCDclip.tif"
 tif_filename <- "C:/Users/guen.grosklos/Google Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5010NLCDclip.tif"
+=======
+# tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5000NLCDclip.tif"
+tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5010NLCDclip.tif"
+>>>>>>> 531d85469b485db0abb803042cb0d25ead1a6545
 
 mu_base <- tibble::tibble(
   LandCover = c("Water", "Development", "Forest", "Agriculture"),
@@ -84,7 +109,11 @@ df <- df |>
 # Run with different number of cameras
 # cam_tests <- c(25, 50, 75, 100, 125)
 # cam_tests <- c(50, 75, 100)
+<<<<<<< HEAD
 cam_tests <- c(50)
+=======
+cam_tests <- c(100)
+>>>>>>> 531d85469b485db0abb803042cb0d25ead1a6545
 
 # tele_sample <- NULL
 tele_sample <- tibble::tibble(
@@ -97,9 +126,15 @@ study_design <- tibble::tibble(
   q = 30^2, # Number grid cells
   dx = 30,  # Grid cell lengths (m)
   dy = 30,
+<<<<<<< HEAD
   t_steps = 500, # Number of time steps
   dt = 1, # Time step size (hr)
   t_censor = 2,
+=======
+  t_steps = 1000, # Number of time steps
+  dt = 1, # Time step size (hr)
+  t_censor = 1,
+>>>>>>> 531d85469b485db0abb803042cb0d25ead1a6545
   bounds = list(c(0, dx * q ^ 0.5)), # Sampling area boundaries
   tot_A = (bounds[[1]][2] - bounds[[1]][1])^2,
   num_groups = tot_N,
@@ -583,7 +618,12 @@ for (cam_des in 1:nrow(all_designs)) {
           dplyr::bind_rows(D_all_REST) |>
           dplyr::group_by(Model, Covariate) |>
           dplyr::summarise(
+<<<<<<< HEAD
             Mean = mean(Est, na.rm = T)
+=======
+            Mean = mean(Est, na.rm = T),
+            Median = median(Est, na.rm = T)
+>>>>>>> 531d85469b485db0abb803042cb0d25ead1a6545
           ) |>
           print()
 

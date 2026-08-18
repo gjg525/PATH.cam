@@ -65,6 +65,12 @@ ABM_sim <- function(
   bounds <- unlist(study_design$bounds)
   h_range_strength <- unlist(study_design$h_range_strength)
 
+  if (is.null(study_design$corr_strength)) {
+    corr_strength <- 0
+  } else {
+    corr_strength <- study_design$corr_strength
+  }
+
   if (is.null(animalxy.0)) {
     # Place animals on landscape
     animalxy.0 <- place_animals(study_design, lscape_defs)
@@ -118,7 +124,7 @@ ABM_sim <- function(
       theta_group <- Rfast::rvonmises(
         1,
         theta_group,
-        0
+        corr_strength
       )
 
       # Define turning angles for all individuals
