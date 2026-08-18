@@ -15,9 +15,7 @@ fit.model.mcmc.PATH.NB(
   kappa_prior_mu,
   kappa_prior_var,
   kappa_tune,
-  r_start = 1,
-  r_prior_var = 1,
-  r_tune = 0,
+  r_fixed = 1,
   count_data_in,
   habitat_summary,
   grouping = "Speed"
