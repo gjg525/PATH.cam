@@ -2,7 +2,7 @@
 # Custom abm simulation parameters
 tot_N <- 10
 
-# Full correlated walk
+# Full Random walk
 sim_name <- "Random"
 init_placement <- NULL
 home_range_strength <- NULL
@@ -13,7 +13,7 @@ corr_strength <- 0
 # init_placement <- NULL
 # home_range_strength <- NULL
 # corr_strength <- 3
-#
+
 # # Full home range walks
 # sim_name <- "Home Range"
 # home_range_strength <- list(stats::runif(tot_N, 0.0005, 0.01))
@@ -167,11 +167,11 @@ study_design <- study_design %>%
   )
 
 all_designs <- tibble::tibble(
-  Design_name = c("Random", "Ag_bias", "Ag_all"),
+  Design_name = c("Random", "Forest_all", "Ag_all"),
   Design =c("Random", "Bias", "Bias"),
   Props = c(
     list(c(1, 1, 1)),
-    list(c(0.8, 0, 0.2)),
+    list(c(0, 0, 1)),
     list(c(1, 0, 0))
   )
 )
@@ -204,11 +204,11 @@ for (cam_des in 1:nrow(all_designs)) {
     # aim for cam_A ~ 50 - 100 m^2
     cam_design <- tibble::tibble(
       ncam = cam_tests[cam],
-      snap_rate = 1 / 6, # snapshot rate (hours)
+      snap_rate = 1 / 20, # snapshot rate (hours)
       Design_name = all_designs$Design_name[cam_des],
       Design = all_designs$Design[cam_des],
       Props = all_designs$Props[cam_des],
-      cam_length = 0.01 * 30, # study_design$dx  * 0.5, # length of all viewshed sides
+      cam_length = 0.015 * 30, # study_design$dx  * 0.5, # length of all viewshed sides
       cam_A = cam_length ^ 2 / 2,
       tot_snaps = ncam * study_design$t_steps / snap_rate
     )
@@ -478,36 +478,36 @@ for (cam_des in 1:nrow(all_designs)) {
         ###################################
         # REST w/ covariates
         ###################################
-        if (encounter_num_cov != study_design$num_covariates) {
+        # if (encounter_num_cov != study_design$num_covariates) {
           D.REST.MCMC.cov <- NA
           SD.REST.MCMC.cov <- NA
-        } else {
-          chain.REST.cov <- fit.model.mcmc.REST.cov(
-            study_design,
-            cam_design,
-            cam_locs,
-            gamma_start = rep(log(mean(encounter_data)), study_design$num_covariates),
-            kappa_start = rep(log(mean(stay_time_data,na.rm=T)), study_design$num_covariates),
-            gamma_prior_var = 10,
-            kappa_prior_var = 10,
-            gamma_tune = rep(-1, study_design$num_covariates),
-            kappa_tune = rep(-1, study_design$num_covariates),
-            encounter_data_in = encounter_data,
-            stay_time_data_in = stay_time_data
-          )
-
-          # ## Posterior summaries
-          # plot(chain.REST.cov$tot_u[study_design$burn_in:study_design$n_iter])
-          D.REST.MCMC.cov <- mean(chain.REST.cov$tot_u[study_design$burn_in:study_design$n_iter])
-          SD.REST.MCMC.cov <- sd(chain.REST.cov$tot_u[study_design$burn_in:study_design$n_iter])
-
-          if(any(colMeans(chain.REST.cov$accept[study_design$burn_in:study_design$n_iter,])< 0.2) ||
-             any(colMeans(chain.REST.cov$accept[study_design$burn_in:study_design$n_iter,])> 0.7)){
-            warning(('REST accept rate OOB'))
-            D.REST.MCMC.cov <- NA
-            SD.REST.MCMC.cov <- NA
-          }
-        }
+        # } else {
+        #   chain.REST.cov <- fit.model.mcmc.REST.cov(
+        #     study_design,
+        #     cam_design,
+        #     cam_locs,
+        #     gamma_start = rep(log(mean(encounter_data)), study_design$num_covariates),
+        #     kappa_start = rep(log(mean(stay_time_data,na.rm=T)), study_design$num_covariates),
+        #     gamma_prior_var = 10,
+        #     kappa_prior_var = 10,
+        #     gamma_tune = rep(-1, study_design$num_covariates),
+        #     kappa_tune = rep(-1, study_design$num_covariates),
+        #     encounter_data_in = encounter_data,
+        #     stay_time_data_in = stay_time_data
+        #   )
+        #
+        #   # ## Posterior summaries
+        #   # plot(chain.REST.cov$tot_u[study_design$burn_in:study_design$n_iter])
+        #   D.REST.MCMC.cov <- mean(chain.REST.cov$tot_u[study_design$burn_in:study_design$n_iter])
+        #   SD.REST.MCMC.cov <- sd(chain.REST.cov$tot_u[study_design$burn_in:study_design$n_iter])
+        #
+        #   if(any(colMeans(chain.REST.cov$accept[study_design$burn_in:study_design$n_iter,])< 0.2) ||
+        #      any(colMeans(chain.REST.cov$accept[study_design$burn_in:study_design$n_iter,])> 0.7)){
+        #     warning(('REST accept rate OOB'))
+        #     D.REST.MCMC.cov <- NA
+        #     SD.REST.MCMC.cov <- NA
+        #   }
+        # }
       }
 
       D_all[[(run - 1) * 3 + 1]] <- tibble::tibble(
