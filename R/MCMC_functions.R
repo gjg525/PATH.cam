@@ -70,6 +70,7 @@ fit.model.mcmc.PATH <- function(study_design,
                                 kappa_prior_mu,
                                 kappa_prior_var,
                                 kappa_tune,
+                                alpha_prior,
                                 count_data_in,
                                 habitat_summary,
                                 grouping = "Speed") {
@@ -161,7 +162,6 @@ fit.model.mcmc.PATH <- function(study_design,
     # Sample kappa
     kappa_star <- rnorm(num_covariates, kappa[i, ], exp(2 * kappa_tune))
     # kappa_star <- truncnorm::rtruncnorm(num_covariates, 0, Inf, kappa[i, ], exp(2 * kappa_tune))
-    kappa_star <- log(exp(kappa_star) / sum(exp(kappa_star)))
 
     # Proportional staying time defined by priors
     mh1 <- sum(dnorm(kappa_star,kappa_prior_mu,kappa_prior_var^0.5,log=TRUE))
@@ -180,6 +180,13 @@ fit.model.mcmc.PATH <- function(study_design,
     kappa[i + 1, ] <- kappa[i, ]
 
     stay_prop <- exp(kappa[i + 1, ]) / sum(exp(kappa[i + 1, ]))
+
+    # Sample Residence Indices (stay_prop) directly from Dirichlet
+    # Draw independent values from a Gamma distribution using alpha priors
+    # gamma_draws <- rgamma(num_covariates, shape = alpha_prior, rate = 1)
+    # stay_prop <- gamma_draws / sum(gamma_draws)
+    #
+    # kappa[i + 1, ] <- log(stay_prop)
 
     u <- d * habitat_summary$n_lscape / stay_prop *
       habitat_summary$prop_cams / (cam_design$cam_A * t_steps / cam_design$snap_rate)

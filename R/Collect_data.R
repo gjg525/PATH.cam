@@ -107,7 +107,17 @@ get_cam_captures <- function(animalxy, cam_locs, study_design) {
       dplyr::select(-cam_intersects) |>
       ungroup()
   } else {
-    cam_captures <- cell_captures
+    cam_captures <- cell_captures |>
+      dplyr::mutate(
+        xy_index = list(cam_locs[cam_locs$lscape_index %in% lscape_index[1], 3:4]),
+        cam_intersects = NA,
+        t_stay = NA,
+        in_cam = NA,
+        encounter = NA,
+        t_in = NA,
+        t_out = NA,
+        Speed = NA_character_
+      )
   }
   return(cam_captures)
 }
@@ -288,5 +298,3 @@ get_stay_time_data <- function(cam_locs, cam_captures) {
 
   return(list(stay_time_raw, stay_time_data))
 }
-
-

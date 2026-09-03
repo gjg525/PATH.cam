@@ -94,41 +94,123 @@ plot_ABM_2 = function(study_design, lscape_defs, animalxy.all) {
   # Define cell size
   cell_size <- study_design$dx
 
+  # Extract start and end locations for each animal
+  endpoints <- animalxy.all |>
+    group_by(Animal_ID) |>
+    arrange(t) |>
+    slice(c(1, n())) |>
+    mutate(
+      Point_Type = c("Start", "End")
+    ) |>
+    ungroup()
+
   ggplot() +
-    geom_tile(data = lscape_defs,
-              aes(
-                x = X * cell_size - cell_size / 2,
-                y = Y * cell_size - cell_size / 2,
-                fill = Speed
-              ),
-              alpha = 0.6) +
+    # geom_tile(data = lscape_defs,
+    #           aes(
+    #             x = X * cell_size - cell_size / 2,
+    #             y = Y * cell_size - cell_size / 2,
+    #             fill = Speed
+    #           ),
+    #           alpha = 0.7) +
+    geom_raster(data = lscape_defs,
+                aes(
+                  x = X * cell_size - cell_size / 2,
+                  y = Y * cell_size - cell_size / 2,
+                  fill = Speed
+                ),
+                alpha = 0.7) +
     geom_path(data = animalxy.all,
-              aes(x = X, y = Y, group = Animal_ID),
-              color = "black",
-              linewidth = 0.3,
-              alpha = 0.4) +
+              aes(x = X, y = Y, group = Animal_ID, color = Strategy),
+              linewidth = 0.2,
+              alpha = 0.8) +
+    geom_point(data = endpoints,
+               aes(x = X, y = Y, shape = Point_Type),
+               color = "black",
+               size = 1.2) +
+    geom_point(data = endpoints,
+               aes(x = X, y = Y, color = Strategy, shape = Point_Type),
+               size = .2,
+               stroke = 1) +
     scale_fill_manual(
-      # values = c(
-      #   "Agriculture" = "#E6C229",
-      #   "Development" = "#D1D1D1",
-      #   "Forest"      = "#4A7C59"
-      # )
+      name = "Habitat Type",
       values = c(
-        "Water"       = "#1F78B4",  # A nice deep blue
-        "Development" = "#666666",  # Red "#E31A1C"(common for development) or use "#666666" for Grey
-        "Forest"      = "#4A7C59",  # Deep green
-        "Agriculture" = "#E6C229"   # Earthy yellow/tan
+        "Water"       = "#1F78B4",
+        "Development" = "#666666",
+        "Forest"      = "#4A7C59",
+        "Agriculture" = "#E6C229"
       )
     ) +
-    theme_minimal() +
-    coord_fixed() +
+    scale_color_manual(
+      name = "Movement Strategy",
+      values = c(
+        "Home Range" = "#D95F02",
+        "CRW"        = "#7570B3"
+      )
+    ) +
+    scale_shape_manual(
+      name = "Trajectory Ends",
+      values = c("Start" = 16, "End" = 17) # 1 = hollow circle, 17 = solid triangle
+    ) +    theme_classic() +
+    coord_fixed(expand = FALSE) +
+    # ggspatial::annotation_scale(
+    #   location = "br",
+    #   width_hint = 0.25,
+    #   text_cex = 0.8,
+    #   pad_x = unit(0.5, "cm"),
+    #   pad_y = unit(0.5, "cm")
+    # ) +
     labs(
-      title = "Individual Trajectories Across Landscape",
-      subtitle = "Simulated movement paths over mapped grid types",
-      x = "X",
-      y = "Y",
-      fill = "Habitat Type"
+      x = "Easting (meters)",
+      y = "Northing (meters)"
+    ) +
+    theme(
+      # text = ggplot2::element_text(size = 16),
+      axis.text = element_text(color = "black", size = 8),
+      axis.title = element_text(size = 10),
+      legend.position = "right",
+      panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.5),
+      legend.key.size = unit(0.4, "cm"),       # Shrinks the colored boxes/lines
+      legend.text = element_text(size = 7),    # Shrinks the legend text
+      legend.title = element_text(size = 8, face = "bold"),
+      legend.spacing.y = unit(0.1, "cm"),      # Reduces vertical space between items
+      legend.box.margin = margin(0, 0, 0, 0)
     )
+  #
+  # ggplot() +
+  #   geom_tile(data = lscape_defs,
+  #             aes(
+  #               x = X * cell_size - cell_size / 2,
+  #               y = Y * cell_size - cell_size / 2,
+  #               fill = Speed
+  #             ),
+  #             alpha = 0.6) +
+  #   geom_path(data = animalxy.all,
+  #             aes(x = X, y = Y, group = Animal_ID),
+  #             color = "black",
+  #             linewidth = 0.3,
+  #             alpha = 0.4) +
+  #   scale_fill_manual(
+  #     # values = c(
+  #     #   "Agriculture" = "#E6C229",
+  #     #   "Development" = "#D1D1D1",
+  #     #   "Forest"      = "#4A7C59"
+  #     # )
+  #     values = c(
+  #       "Water"       = "#1F78B4",  # A nice deep blue
+  #       "Development" = "#666666",  # Red "#E31A1C"(common for development) or use "#666666" for Grey
+  #       "Forest"      = "#4A7C59",  # Deep green
+  #       "Agriculture" = "#E6C229"   # Earthy yellow/tan
+  #     )
+  #   ) +
+  #   theme_minimal() +
+  #   coord_fixed() +
+  #   labs(
+  #     title = "Individual Trajectories Across Landscape",
+  #     subtitle = "Simulated movement paths over mapped grid types",
+  #     x = "X",
+  #     y = "Y",
+  #     fill = "Habitat Type"
+  #   )
 }
 #' Visualize Animal Space Use Intensity
 #'

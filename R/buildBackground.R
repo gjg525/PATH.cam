@@ -8,8 +8,8 @@ buildBackground <- function(parameterSet, tifFile, custom_tiles = NULL) {
 
   # Background <- BB[331:362, 548:ncol(BB)]
   if (is.null(custom_tiles)) {
-    Background <- BB[333:362, (ncol(BB) - 31):(ncol(BB) - 2)]
-    # Background <- BB
+    # Background <- BB[333:362, (ncol(BB) - 31):(ncol(BB) - 2)]
+    Background <- BB
   } else {
     Background <- BB[custom_tiles$x[[1]], custom_tiles$y[[1]]]
   }
