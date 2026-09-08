@@ -4,7 +4,7 @@ tot_N <- 2
 
 # Hybrid correlated walk / home range (60/40 split)
 sim_name <- "Hybrid"
-home_range_strength <- list(stats::runif(tot_N, 0.001, 0.005))
+home_range_strength <- list(stats::runif(tot_N, 0.0005, 0.001))
 init_placement <- list(c(1, 0, 0))
 corr_strength <- 0
 
@@ -28,7 +28,10 @@ options(ggplot2.discrete.fill = fig_colors)
 ################################################################################
 # Load NLCD data set
 # tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5000NLCDclip.tif"
-tif_filename <- "G:/My Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5010NLCDclip.tif"
+tif_filename <- "/home/guengrosklos/Desktop/NLCD_data/NLCD_data/LowTag5010NLCDclip.tif"
+
+# Time step for ABM
+t_step_size <- 0.25
 
 mu_base <- tibble::tibble(
   LandCover = c("Water", "Development", "Forest", "Agriculture"),
@@ -72,8 +75,8 @@ study_design <- tibble::tibble(
   q = nrow(df), # Number grid cells
   dx = 30,  # Grid cell lengths (m)
   dy = 30,
-  t_steps = 500, # Number of time steps
-  dt = 1, # Time step size (hr)
+  t_steps = 500 / t_step_size, # Number of time steps
+  dt = t_step_size, # Time step size (hr)
   t_censor = 100,
   bounds = list(c(0, dx * q ^ 0.5)), # Sampling area boundaries
   tot_A = (bounds[[1]][2] - bounds[[1]][1])^2,
@@ -219,4 +222,24 @@ plot_ABM_2(study_design, lscape_defs, animalxy.all)
 #   bg = "white"
 # )
 
+# Calculate the home range radius and area for each animal
+# Shooting for home ranges around 0.5 area_km2 for home range animals
+hr_metrics <- animalxy.all |>
+  group_by(Animal_ID) |>
+  mutate(
+    # Find the spatial center (centroid) for the animal
+    center_X = mean(X),
+    center_Y = mean(Y),
+    # Calculate the distance of every point to that center
+    dist_to_center = sqrt((X - center_X)^2 + (Y - center_Y)^2)
+  ) |>
+  summarize(
+    # Calculate the 95% core radius (removes outlier extreme steps)
+    radius_95_m = quantile(dist_to_center, probs = 0.95),
+    # Calculate absolute max radius for reference
+    radius_max_m = max(dist_to_center),
+    # Calculate the 95% home range area in square kilometers
+    area_km2 = (pi * radius_95_m^2) / 1000000,
 
+    .groups = "drop"
+  )
