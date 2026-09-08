@@ -73,7 +73,7 @@ get_cam_captures <- function(animalxy, cam_locs, study_design) {
     cam_captures <- cell_captures |>
       dplyr::group_by(pass_i) |>
       # dplyr::mutate(pass_i = pass_i[t == min(t)]) |>
-      dplyr::summarise(
+      dplyr::reframe(
         xy_index = list(cam_locs[cam_locs$lscape_index %in% lscape_index[1], 3:4]),
         cam_intersects = list(
           calc_intersects(
