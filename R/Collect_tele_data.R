@@ -41,38 +41,38 @@ Collect_tele_data = function(animalxy.all, study_design, grouping = "Speed", tel
     ID_sample <- sample(unique(animalxy.all$Animal_ID), tele_sample$ID_sample_size)
   }
 
-  # # Calculate mean residence indices over all fixes
-  # cell_captures_tele <- animalxy.all %>%
-  #   dplyr::filter(t %in% t_sample & Animal_ID %in% ID_sample) %>%
-  #   dplyr::rename(Speed = lscape_type) %>%
-  #   dplyr::group_by(!!sym(grouping)) %>%
-  #   dplyr::count() %>%
-  #   dplyr::ungroup() %>%
-  #   dplyr::mutate(
-  #     stay_prop = n / sum(n),
-  #     # Standard deviation for log-transformed counts
-  #     stay_sd = sqrt(stay_prop * (1 - stay_prop) / sum(n))
-  #     # # variance on multinomial distribution
-  #     # stay_sd = stay_prop * (1 - stay_prop) / sum(n)
-  #   ) %>%
-  #   dplyr::arrange(match(!!sym(grouping), unlist(study_design$covariate_labels)))
-
-  # Calculate metrics by animal
+  # Calculate mean residence indices over all fixes
   cell_captures_tele <- animalxy.all %>%
     dplyr::filter(t %in% t_sample & Animal_ID %in% ID_sample) %>%
     dplyr::rename(Speed = lscape_type) %>%
-    dplyr::count(Animal_ID, !!sym(grouping)) %>%
-    dplyr::ungroup() %>%
-    tidyr::complete(Animal_ID, !!sym(grouping), fill = list(n = 0)) %>%
-    dplyr::group_by(Animal_ID) %>%
-    dplyr::mutate(indiv_prop = n / sum(n)) %>%
-    dplyr::ungroup() %>%
     dplyr::group_by(!!sym(grouping)) %>%
-    dplyr::summarise(
-      stay_prop = mean(indiv_prop),
-      stay_sd = sd(indiv_prop)
+    dplyr::count() %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(
+      stay_prop = n / sum(n),
+      # Standard deviation for log-transformed counts
+      stay_sd = sqrt(stay_prop * (1 - stay_prop) / sum(n))
+      # # variance on multinomial distribution
+      # stay_sd = stay_prop * (1 - stay_prop) / sum(n)
     ) %>%
     dplyr::arrange(match(!!sym(grouping), unlist(study_design$covariate_labels)))
+
+  # # Calculate metrics by animal
+  # cell_captures_tele <- animalxy.all %>%
+  #   dplyr::filter(t %in% t_sample & Animal_ID %in% ID_sample) %>%
+  #   dplyr::rename(Speed = lscape_type) %>%
+  #   dplyr::count(Animal_ID, !!sym(grouping)) %>%
+  #   dplyr::ungroup() %>%
+  #   tidyr::complete(Animal_ID, !!sym(grouping), fill = list(n = 0)) %>%
+  #   dplyr::group_by(Animal_ID) %>%
+  #   dplyr::mutate(indiv_prop = n / sum(n)) %>%
+  #   dplyr::ungroup() %>%
+  #   dplyr::group_by(!!sym(grouping)) %>%
+  #   dplyr::summarise(
+  #     stay_prop = mean(indiv_prop),
+  #     stay_sd = sd(indiv_prop)
+  #   ) %>%
+  #   dplyr::arrange(match(!!sym(grouping), unlist(study_design$covariate_labels)))
 
   # # Calculate mean
   # cell_captures_tele <- animalxy.all %>%
