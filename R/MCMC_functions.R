@@ -103,7 +103,7 @@ fit.model.mcmc.PATH <- function(study_design,
   )
 
   d <- exp(gamma[1, ])
-  stay_prop <- exp(kappa[1, ])
+  stay_prop <- exp(kappa[1, ]) / sum(exp(kappa[1, ]))
 
   u <- d * habitat_summary$n_lscape / stay_prop *
     habitat_summary$prop_cams / (cam_design$cam_A * t_steps / cam_design$snap_rate)
@@ -161,7 +161,7 @@ fit.model.mcmc.PATH <- function(study_design,
     # Sample kappa
     kappa_star <- rnorm(num_covariates, kappa[i, ], exp(2 * kappa_tune))
     # kappa_star <- truncnorm::rtruncnorm(num_covariates, 0, Inf, kappa[i, ], exp(2 * kappa_tune))
-    kappa_star <- log(exp(kappa_star) / sum(exp(kappa_star)))
+    # kappa_star <- log(exp(kappa_star) / sum(exp(kappa_star)))
 
     # Proportional staying time defined by priors
     mh1 <- sum(dnorm(kappa_star,kappa_prior_mu,kappa_prior_var^0.5,log=TRUE))
@@ -179,7 +179,7 @@ fit.model.mcmc.PATH <- function(study_design,
 
     kappa[i + 1, ] <- kappa[i, ]
 
-    stay_prop <- exp(kappa[i + 1, ])
+    stay_prop <- exp(kappa[i + 1, ]) / sum(exp(kappa[i + 1, ]))
 
     u <- d * habitat_summary$n_lscape / stay_prop *
       habitat_summary$prop_cams / (cam_design$cam_A * t_steps / cam_design$snap_rate)
@@ -310,7 +310,7 @@ fit.model.mcmc.PATH.NB <- function(study_design,
   )
 
   d <- exp(gamma[1, ])
-  stay_prop <- exp(kappa[1, ])
+  stay_prop <- exp(kappa[1, ]) / sum(exp(kappa[1, ]))
 
   u <- d * habitat_summary$n_lscape / stay_prop *
     habitat_summary$prop_cams / (cam_design$cam_A * t_steps / cam_design$snap_rate)
@@ -381,7 +381,7 @@ fit.model.mcmc.PATH.NB <- function(study_design,
       accept[i + 1, num_covariates + 1] <- 0
     }
     kappa[i + 1, ] <- kappa[i, ]
-    stay_prop <- exp(kappa[i + 1, ])
+    stay_prop <- exp(kappa[i + 1, ]) / sum(exp(kappa[i + 1, ]))
 
     # Calculate total abundance (u)
     u <- d * habitat_summary$n_lscape / stay_prop *

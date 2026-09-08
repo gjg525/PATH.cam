@@ -69,7 +69,7 @@ all_designs <- tibble::tibble(
   )
 )
 
-for (cam_des in 1:nrow(all_designs)) {
+for (cam_des in 1:4) {
   for (cam in 1:length(cam_tests)) {
 
     # Cam designs
@@ -79,7 +79,7 @@ for (cam_des in 1:nrow(all_designs)) {
       Design_name = all_designs$Design_name[cam_des],
       Design = all_designs$Design[cam_des],
       Props = all_designs$Props[cam_des],
-      cam_length = study_design$dx * 0.1, # length of all viewshed sides
+      cam_length = study_design$dx * 0.05, # length of all viewshed sides
       cam_A = cam_length ^ 2 / 2,
       tot_snaps = ncam * study_design$t_steps
     )
@@ -349,12 +349,8 @@ for (cam_des in 1:nrow(all_designs)) {
           dplyr::bind_rows() |>
           dplyr::group_by(Model) |>
           dplyr::summarise(
-<<<<<<< HEAD
-            Mean = mean(Est)
-=======
             Mean = mean(Est, na.rm = T),
             Median = median(Est, na.rm = T)
->>>>>>> 531d85469b485db0abb803042cb0d25ead1a6545
           ) |>
           print()
       }
@@ -374,7 +370,7 @@ for (cam_des in 1:nrow(all_designs)) {
                                      cam_design$Design_name,
                                      "_",
                                      cam_design$ncam,
-                                     "_cam_10min2.RData")
+                                     "_cam_10min.RData")
     )
 
     rm(save_results, all_data, D_all)

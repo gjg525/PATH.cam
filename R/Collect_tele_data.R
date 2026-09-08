@@ -41,43 +41,38 @@ Collect_tele_data = function(animalxy.all, study_design, grouping = "Speed", tel
     ID_sample <- sample(unique(animalxy.all$Animal_ID), tele_sample$ID_sample_size)
   }
 
-  # Calculate mean residence indices
+  # # Calculate mean residence indices
+  # cell_captures_tele <- animalxy.all %>%
+  #   dplyr::filter(t %in% t_sample & Animal_ID %in% ID_sample) %>%
+  #   dplyr::rename(Speed = lscape_type) %>%
+  #   dplyr::group_by(!!sym(grouping)) %>%
+  #   dplyr::count() %>%
+  #   dplyr::ungroup() %>%
+  #   dplyr::mutate(
+  #     stay_prop = n / sum(n),
+  #     # Standard deviation for log-transformed counts
+  #     stay_sd = sqrt(stay_prop * (1 - stay_prop) / sum(n)) / stay_prop
+  #     # # variance on multinomial distribution
+  #     # stay_sd = stay_prop * (1 - stay_prop) / sum(n)
+  #   ) %>%
+  #   dplyr::arrange(match(!!sym(grouping), unlist(study_design$covariate_labels)))
+
+  # Calculate metrics by animal
   cell_captures_tele <- animalxy.all %>%
     dplyr::filter(t %in% t_sample & Animal_ID %in% ID_sample) %>%
     dplyr::rename(Speed = lscape_type) %>%
-    dplyr::group_by(!!sym(grouping)) %>%
-    dplyr::count() %>%
+    dplyr::count(Animal_ID, !!sym(grouping)) %>%
+    dplyr::ungroup() |>
+    tidyr::complete(Animal_ID, !!sym(grouping), fill = list(n = 0)) %>%
+    dplyr::group_by(Animal_ID) %>%
+    dplyr::mutate(indiv_prop = n / sum(n)) %>%
     dplyr::ungroup() %>%
-    dplyr::mutate(
-      stay_prop = n / sum(n),
-      # Standard deviation for log-transformed counts
-      stay_sd = sqrt(stay_prop * (1 - stay_prop) / sum(n)) / stay_prop
-      # # variance on multinomial distribution
-      # stay_sd = stay_prop * (1 - stay_prop) / sum(n)
+    dplyr::group_by(!!sym(grouping)) %>%
+    dplyr::summarise(
+      stay_prop = mean(indiv_prop),
+      stay_sd = sd(indiv_prop)
     ) %>%
     dplyr::arrange(match(!!sym(grouping), unlist(study_design$covariate_labels)))
-
-  # # Group by animal
-  # cell_captures_tele <- animalxy.all |>
-  #   # 1. More robust time filtering: grab rows closest to target times
-  #   # (Assuming you want fixes roughly every 'dt' steps)
-  #   mutate(time_bin = round(t / study_design$dt) * study_design$dt) |>
-  #   group_by(Animal_ID, time_bin) |>
-  #   slice_min(abs(t - time_bin), n = 1) |> # Gets the closest actual fix to the scheduled time
-  #   ungroup() |>
-  #   rename(Speed = lscape_type) |>
-  #   count(Animal_ID, Speed) |>
-  #   group_by(Animal_ID) |>
-  #   mutate(
-  #     total_fixes = sum(n),
-  #     stay_prop = n / total_fixes,
-  #     # SE of the log-proportion
-  #     stay_sd_log = sqrt(stay_prop * (1 - stay_prop) / total_fixes) / stay_prop,
-  #     # SE of the raw proportion (just in case your MCMC needs this instead)
-  #     stay_sd_raw = sqrt(stay_prop * (1 - stay_prop) / total_fixes)
-  #   ) |>
-  #   ungroup() |>
-  #   arrange(Animal_ID, desc(Speed))
 
   # # Calculate mean
   # cell_captures_tele <- animalxy.all %>%
