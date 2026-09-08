@@ -298,5 +298,3 @@ get_stay_time_data <- function(cam_locs, cam_captures) {
 
   return(list(stay_time_raw, stay_time_data))
 }
-
-

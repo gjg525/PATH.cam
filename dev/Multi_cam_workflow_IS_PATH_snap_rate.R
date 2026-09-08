@@ -5,8 +5,8 @@ library(gridExtra)
 library(doParallel)
 devtools::load_all()
 
-sim_dir <- "C:/Users/guen.grosklos/Google Drive/Missoula_postdoc/PATH_model/sim_results/"
-sim_dir_REST <- "C:/Users/guen.grosklos/Google Drive/Missoula_postdoc/PATH_model/sim_results_REST/"
+sim_dir <- "G:/My Drive/Missoula_postdoc/PATH_model/sim_results/"
+sim_dir_REST <- "G:/My Drive/Missoula_postdoc/PATH_model/sim_results_REST/"
 
 # Initializations
 fig_colors <- c("#2ca25f", "#fc8d59", "#67a9cf", "#f768a1", "#bae4b3", "#fed98e")
@@ -14,7 +14,7 @@ options(ggplot2.discrete.colour = fig_colors)
 options(ggplot2.discrete.fill = fig_colors)
 
 # Run with different number of cameras
-cam_tests <- c(25, 50, 75, 100, 125, 250)
+cam_tests <- c(25, 50, 75, 100, 125)
 # cam_tests <- c(250)
 
 # Load animal GPS data
@@ -69,7 +69,7 @@ all_designs <- tibble::tibble(
   )
 )
 
-for (cam_des in 1:4) {
+for (cam_des in 5) {
   for (cam in 1:length(cam_tests)) {
 
     # Cam designs
@@ -146,13 +146,14 @@ for (cam_des in 1:4) {
       # Set reference category for intercept
       study_design$Z[[1]][, ref_cat_idx] <- 1
 
-      # Subtract reference category from stay time proportion
-      prop_adjust <- tele_summary$stay_prop /
-        tele_summary$stay_prop[ref_cat_idx]
-      prop_adjust[ref_cat_idx] <- tele_summary$stay_prop[ref_cat_idx]
-      kappa.prior.mu.adj <- log(prop_adjust)
-      kappa.prior.mu <- log(tele_summary$stay_prop)
-      kappa.prior.var <- tele_summary$stay_sd^2 # stay_time_summary$cell_sd ^ 2
+      # # Subtract reference category from stay time proportion
+      # kappa.prior.mu <- log(tele_summary$stay_prop)
+      # kappa.prior.var <- tele_summary$stay_sd^2 # stay_time_summary$cell_sd ^ 2
+      # Convert to the log-scale parameters using moment matching
+      m <- tele_summary$stay_prop
+      v <- tele_summary$stay_sd^2
+      kappa.prior.mu <- log(m^2 / sqrt(v + m^2))
+      kappa.prior.var <- sqrt(log(1 + (v / m^2))) ^ 2
 
       # Place cameras on study area
       cam_locs <- create_cam_samp_design(study_design,
@@ -293,6 +294,13 @@ for (cam_des in 1:4) {
         )
         ## Posterior summaries
         # plot(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
+        # print(colMeans(exp(chain.PATH$gamma[study_design$burn_in:study_design$n_iter,])))
+        # stay_prop <- colMeans(exp(chain.PATH$kappa[study_design$burn_in:study_design$n_iter,]) / rowSums(exp(chain.PATH$kappa[study_design$burn_in:study_design$n_iter,])))
+        # d <- colMeans(exp(chain.PATH$gamma[study_design$burn_in:study_design$n_iter,]))
+        # n_habitat_unscaled <- d * habitat_summary$n_lscape *
+        #   habitat_summary$prop_cams / (cam_design$cam_A *
+        #                                  study_design$t_steps / cam_design$snap_rate)
+        # n_habitat_scaled <- n_habitat_unscaled / stay_prop
         D.PATH.MCMC <- mean(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
         SD.PATH.MCMC <- sd(chain.PATH$tot_u[study_design$burn_in:study_design$n_iter])
 
@@ -370,7 +378,7 @@ for (cam_des in 1:4) {
                                      cam_design$Design_name,
                                      "_",
                                      cam_design$ncam,
-                                     "_cam_10min.RData")
+                                     "_cam_10min2.RData")
     )
 
     rm(save_results, all_data, D_all)

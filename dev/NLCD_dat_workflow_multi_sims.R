@@ -8,23 +8,23 @@ tot_N <- 25
 # home_range_strength <- NULL
 # corr_strength <- 0
 #
-# Full correlated walk
-sim_name <- "Correlated"
-init_placement <- NULL
-home_range_strength <- NULL
-corr_strength <- 3
+# # Full correlated walk
+# sim_name <- "Correlated"
+# init_placement <- NULL
+# home_range_strength <- NULL
+# corr_strength <- 1
 
-# # Full home range walks
-# sim_name <- "Home Range"
-# home_range_strength <- list(stats::runif(tot_N, 0.0005, 0.01))
-# init_placement <- list(c(0.8, 0, 0.2))
-# corr_strength <- 0
+# Full home range walks
+sim_name <- "Home Range"
+home_range_strength <- list(stats::runif(tot_N, 0.0005, 0.001))
+init_placement <- list(c(0.8, 0, 0.2))
+corr_strength <- 0
 
-# # Hybrid correlated walk / home range (60/40 split)
-# sim_name <- "Hybrid"
-# home_range_strength <- list(stats::runif(tot_N, 0.0005, 0.01))
-# init_placement <- list(c(4/5, 0, 1/5))
-# corr_strength <- 0
+# Hybrid correlated walk / home range (60/40 split)
+sim_name <- "Hybrid"
+home_range_strength <- list(stats::runif(tot_N, 0.0005, 0.001))
+init_placement <- list(c(4/5, 0, 1/5))
+corr_strength <- 0
 
 ################################################################################
 
@@ -35,7 +35,7 @@ library(gridExtra)
 library(doParallel)
 devtools::load_all()
 
-sim_dir <- "C:/Users/guen.grosklos/Google Drive/Missoula_postdoc/PATH_model/NLCD_cam_results/"
+sim_dir <- "/home/guengrosklos/Desktop/NLCD_cam_results/"
 
 # Initializations
 fig_colors <- c("#2ca25f", "#fc8d59", "#67a9cf", "#f768a1", "#bae4b3", "#fed98e")
@@ -44,12 +44,16 @@ options(ggplot2.discrete.fill = fig_colors)
 
 ################################################################################
 # Load NLCD data set
-# tif_filename <- "C:/Users/guen.grosklos/Google Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5000NLCDclip.tif"
-tif_filename <- "C:/Users/guen.grosklos/Google Drive/Missoula_postdoc/PATH_model/NLCD_data/LowTag5010NLCDclip.tif"
+# tif_filename <- "/home/guengrosklos/Desktop/NLCD_data/LowTag5000NLCDclip.tif"
+tif_filename <- "/home/guengrosklos/Desktop/NLCD_data/NLCD_data/LowTag5010NLCDclip.tif"
+
+# Time step for ABM
+t_step_size <- 0.25
 
 mu_base <- tibble::tibble(
   LandCover = c("Water", "Development", "Forest", "Agriculture"),
-  speed = c(0, 1.5, 0.7, 0.3) * 30 ^ 2 # Manually set km/hr and convert to cell/hr
+  # speed = c(0, 1.5, 0.7, 0.3) * 30 ^ 2 # Manually set km/hr and convert to cell/hr
+  speed = c(0, 360, 180, 90) # Manually set km/hr and convert to cell/hr
 )
 
 # custom_tiles <- tibble::tibble(
@@ -85,7 +89,8 @@ df <- df |>
 
 ################################################################################
 # Run with different number of cameras
-cam_tests <- c(100)
+# cam_tests <- c(1000)
+cam_tests <- c(25, 50, 100, 200)
 
 # tele_sample <- NULL
 tele_sample_1 <- tibble::tibble(
@@ -110,9 +115,10 @@ study_design <- tibble::tibble(
   q = 90^2, # Number grid cells
   dx = 30,  # Grid cell lengths (m)
   dy = 30,
-  t_steps = 500, # Number of time steps
-  dt = 1, # Time step size (hr)
-  t_censor = 100,
+  num_hours = 500, # Sampling period
+  t_steps = num_hours / t_step_size, # Number of time steps
+  dt = t_step_size, # Time step size (hr)
+  t_censor = 100, # "Infinite" censor
   bounds = list(c(0, dx * q ^ 0.5)), # Sampling area boundaries
   tot_A = (bounds[[1]][2] - bounds[[1]][1])^2,
   num_groups = tot_N,
@@ -123,7 +129,7 @@ study_design <- tibble::tibble(
   Initial_placement = init_placement,
   corr_strength = corr_strength,
   # MCMC parms
-  num_runs = 1000,
+  num_runs = 100,
   n_iter = 40000,
   burn_in = 30000,
   covariate_labels = list(c("Agriculture", "Development", "Forest")) # don't include restricted habitats
@@ -134,8 +140,10 @@ study_design <- tibble::tibble(
 lscape_design <- tibble::tibble(
   lscape_tag = "Custom", #"Random", #
   Speed_ID = c("Water", "Development", "Forest", "Agriculture"),
-  # Speed_mins = c(0, 1.27, 0.12, 0.64), # Trying the sqrt of motility to start
-  # Speed_maxes = c(0, 1.55, 0.155, .77)
+  Speed_mean = mu_base$speed,
+  Speed_sd = Speed_mean / 5,
+  gamma_rate = (Speed_mean / Speed_sd) ^ 2,
+  gamma_shape = Speed_mean / Speed_sd ^ 2,
   Speed_mins = mu_base$speed * 0.5,
   Speed_maxes = mu_base$speed * 1.5
   # Probs = c(0.1, 0.1, 0.8)
@@ -155,7 +163,7 @@ lscape_defs <- df |>
   ) |>
   dplyr::left_join(
     lscape_design |>
-      dplyr::select(Speed = Speed_ID, Min = Speed_mins, Max = Speed_maxes),
+      dplyr::select(Speed = Speed_ID, Min = Speed_mins, Max = Speed_maxes, gamma_rate, gamma_shape),
     by = "Speed"
   ) |>
   dplyr::rowwise() |>
@@ -193,18 +201,18 @@ if (sim_name == "Hybrid") {
   # Define study design for correlated walk animals
   study_design_2 <- study_design |>
     dplyr::mutate(
-      num_groups = 5,
+      num_groups = round(tot_N * .2),
       group_sizes = list(rep(1, num_groups)),
       h_range_strength = NULL,
       tot_animals = sum(unlist(group_sizes)),
       Initial_placement = NULL,
-      corr_strength = 3
+      corr_strength = 1
     )
 
   # Adjust original study design
   study_design <- study_design |>
     dplyr::mutate(
-      num_groups = 20,
+      num_groups = round(tot_N * .8),
       group_sizes = list(rep(1, num_groups)),
       tot_animals = sum(unlist(group_sizes))
     )
@@ -221,13 +229,13 @@ for (cam_des in c(1,3)) {
       Design_name = all_designs$Design_name[cam_des],
       Design = all_designs$Design[cam_des],
       Props = all_designs$Props[cam_des],
-      cam_length = 9.5, # length of all viewshed sides
+      cam_length = 20, # 9.5, # length of all viewshed sides
       cam_A = cam_length ^ 2 / 2,
-      tot_snaps = ncam * study_design$t_steps / snap_rate
+      tot_snaps = ncam * study_design$num_hours / snap_rate
     )
 
     seq_tbl <- tibble::tibble(
-      val = seq(1, study_design$t_steps, by = cam_design$snap_rate)
+      val = seq(1, study_design$num_hours, by = cam_design$snap_rate)
     )
 
     # Initialize summary matrices
@@ -283,7 +291,7 @@ for (cam_des in c(1,3)) {
       v <- tele_summary_1$stay_sd^2
       kappa.prior.mu_1 <- log(m^2 / sqrt(v + m^2))
       kappa.prior.var_1 <- sqrt(log(1 + (v / m^2))) ^ 2
-      # alpha_prior_1 <- tele_summary_1$stay_prop * tele_sample_1$ID_sample_size
+      alpha_prior_1 <- tele_summary_1$stay_prop * tele_sample_1$ID_sample_size
 
       # Collect telemetry data
       tele_summary_2 <- Collect_tele_data(animalxy.all, study_design, tele_sample = tele_sample_2)
@@ -293,7 +301,7 @@ for (cam_des in c(1,3)) {
       v <- tele_summary_2$stay_sd^2
       kappa.prior.mu_2 <- log(m^2 / sqrt(v + m^2))
       kappa.prior.var_2 <- sqrt(log(1 + (v / m^2))) ^ 2
-      # alpha_prior_2 <- tele_summary_2$stay_prop * tele_sample_2$ID_sample_size
+      alpha_prior_2 <- tele_summary_2$stay_prop * tele_sample_2$ID_sample_size
 
       # Collect telemetry data
       tele_summary_3 <- Collect_tele_data(animalxy.all, study_design, tele_sample = tele_sample_3)
@@ -303,7 +311,7 @@ for (cam_des in c(1,3)) {
       v <- tele_summary_3$stay_sd^2
       kappa.prior.mu_3 <- log(m^2 / sqrt(v + m^2))
       kappa.prior.var_3 <- sqrt(log(1 + (v / m^2))) ^ 2
-      # alpha_prior_3 <- tele_summary_3$stay_prop * tele_sample_3$ID_sample_size
+      alpha_prior_3 <- tele_summary_3$stay_prop * tele_sample_3$ID_sample_size
 
       # Collect telemetry data
       tele_summary_4 <- Collect_tele_data(animalxy.all, study_design, tele_sample = tele_sample_4)
@@ -313,7 +321,7 @@ for (cam_des in c(1,3)) {
       v <- tele_summary_4$stay_sd^2
       kappa.prior.mu_4 <- log(m^2 / sqrt(v + m^2))
       kappa.prior.var_4 <- sqrt(log(1 + (v / m^2))) ^ 2
-      # alpha_prior_4 <- tele_summary_4$stay_prop * tele_sample_4$ID_sample_size
+      alpha_prior_4 <- tele_summary_4$stay_prop * tele_sample_4$ID_sample_size
 
       # Collect telemetry data for all animals and time steps
       tele_summary_full <- Collect_tele_data(
@@ -326,7 +334,7 @@ for (cam_des in c(1,3)) {
       v_full <- tele_summary_full$stay_sd^2
       kappa.prior.mu_full <- log(m_full^2 / sqrt(v_full + m_full^2))
       kappa.prior.var_full <- sqrt(log(1 + (v_full / m_full^2))) ^2
-      # alpha_prior_full <- tele_summary_full$stay_prop * tot_N # tele_sample_full$ID_sample_size
+      alpha_prior_full <- tele_summary_full$stay_prop * tot_N # tele_sample_full$ID_sample_size
 
       ################################
       # Collect data
@@ -359,7 +367,7 @@ for (cam_des in c(1,3)) {
         ) %>%
         dplyr::mutate(
           prop_cams = ncams / sum(ncams, na.rm = T),
-          d_coeff = n_lscape * prop_cams / stay_prop / (cam_design$cam_A * study_design$t_steps)
+          d_coeff = n_lscape * prop_cams / stay_prop / (cam_design$cam_A * study_design$num_hours / cam_design$snap_rate)
         ) %>%
         replace(is.na(.), 0) %>%
         dplyr::select(Speed, n_lscape, ncams, prop_cams, d_coeff) %>%
@@ -391,7 +399,7 @@ for (cam_des in c(1,3)) {
         ) %>%
         dplyr::mutate(
           prop_cams = ncams / sum(ncams, na.rm = T),
-          d_coeff = n_lscape * prop_cams / stay_prop / (cam_design$cam_A * study_design$t_steps)
+          d_coeff = n_lscape * prop_cams / stay_prop / (cam_design$cam_A * study_design$num_hours / cam_design$snap_rate)
         ) %>%
         replace(is.na(.), 0) %>%
         dplyr::select(Speed, n_lscape, ncams, prop_cams, d_coeff) %>%
@@ -423,7 +431,7 @@ for (cam_des in c(1,3)) {
         ) %>%
         dplyr::mutate(
           prop_cams = ncams / sum(ncams, na.rm = T),
-          d_coeff = n_lscape * prop_cams / stay_prop / (cam_design$cam_A * study_design$t_steps)
+          d_coeff = n_lscape * prop_cams / stay_prop / (cam_design$cam_A * study_design$num_hours / cam_design$snap_rate)
         ) %>%
         replace(is.na(.), 0) %>%
         dplyr::select(Speed, n_lscape, ncams, prop_cams, d_coeff) %>%
@@ -455,7 +463,7 @@ for (cam_des in c(1,3)) {
         ) %>%
         dplyr::mutate(
           prop_cams = ncams / sum(ncams, na.rm = T),
-          d_coeff = n_lscape * prop_cams / stay_prop / (cam_design$cam_A * study_design$t_steps)
+          d_coeff = n_lscape * prop_cams / stay_prop / (cam_design$cam_A * study_design$num_hours / cam_design$snap_rate)
         ) %>%
         replace(is.na(.), 0) %>%
         dplyr::select(Speed, n_lscape, ncams, prop_cams, d_coeff) %>%
@@ -488,7 +496,7 @@ for (cam_des in c(1,3)) {
         ) %>%
         dplyr::mutate(
           prop_cams = ncams / sum(ncams, na.rm = T),
-          d_coeff = n_lscape * prop_cams / stay_prop / (cam_design$cam_A * study_design$t_steps)
+          d_coeff = n_lscape * prop_cams / stay_prop / (cam_design$cam_A * study_design$num_hours / cam_design$snap_rate)
         ) %>%
         replace(is.na(.), 0) %>%
         dplyr::select(Speed, n_lscape, ncams, prop_cams, d_coeff) %>%
@@ -555,7 +563,7 @@ for (cam_des in c(1,3)) {
           kappa_prior_mu = kappa.prior.mu_full,
           kappa_prior_var = kappa.prior.var_full,
           kappa_tune = -1, #rep(-1, study_design$num_covariates),
-          # alpha_prior = alpha_prior_full,
+          alpha_prior = alpha_prior_full,
           count_data_in = count_data,
           habitat_summary_full
         )
@@ -566,7 +574,7 @@ for (cam_des in c(1,3)) {
         # d <- colMeans(exp(chain.PATH.full$gamma[study_design$burn_in:study_design$n_iter,]))
         # n_habitat_unscaled <- d * habitat_summary_full$n_lscape *
         #   habitat_summary_full$prop_cams / (cam_design$cam_A *
-        #                                  study_design$t_steps / cam_design$snap_rate)
+        #                                  study_design$num_hours / cam_design$snap_rate)
         # n_habitat_scaled <- n_habitat_unscaled / stay_prop
         D.PATH.MCMC.full <- mean(chain.PATH.full$tot_u[study_design$burn_in:study_design$n_iter])
         SD.PATH.MCMC.full <- sd(chain.PATH.full$tot_u[study_design$burn_in:study_design$n_iter])
@@ -594,7 +602,7 @@ for (cam_des in c(1,3)) {
           kappa_prior_mu = kappa.prior.mu_1,
           kappa_prior_var = kappa.prior.var_1,
           kappa_tune = -1, #rep(-1, study_design$num_covariates),
-          # alpha_prior = alpha_prior_1,
+          alpha_prior = alpha_prior_1,
           count_data_in = count_data,
           habitat_summary_1
         )
@@ -628,7 +636,7 @@ for (cam_des in c(1,3)) {
           kappa_prior_mu = kappa.prior.mu_2,
           kappa_prior_var = kappa.prior.var_2,
           kappa_tune = -1, #rep(-1, study_design$num_covariates),
-          # alpha_prior = alpha_prior_2,
+          alpha_prior = alpha_prior_2,
           count_data_in = count_data,
           habitat_summary_2
         )
@@ -661,7 +669,7 @@ for (cam_des in c(1,3)) {
           kappa_prior_mu = kappa.prior.mu_3,
           kappa_prior_var = kappa.prior.var_3,
           kappa_tune = -1, #rep(-1, study_design$num_covariates),
-          # alpha_prior = alpha_prior_3,
+          alpha_prior = alpha_prior_3,
           count_data_in = count_data,
           habitat_summary_3
         )
@@ -695,7 +703,7 @@ for (cam_des in c(1,3)) {
           kappa_prior_mu = kappa.prior.mu_4,
           kappa_prior_var = kappa.prior.var_4,
           kappa_tune = -1, #rep(-1, study_design$num_covariates),
-          # alpha_prior = alpha_prior_4,
+          alpha_prior = alpha_prior_4,
           count_data_in = count_data,
           habitat_summary_4
         )
@@ -853,12 +861,12 @@ for (cam_des in c(1,3)) {
 
       ################################################################################
       # IS method
-      tot_snaps <- study_design$t_steps / cam_design$snap_rate * cam_design$ncam
+      tot_snaps <- study_design$num_hours / cam_design$snap_rate * cam_design$ncam
       IS_mean <- sum(count_data$count) * study_design$tot_A /
         (tot_snaps * cam_design$cam_A)
 
       M <- cam_design$ncam
-      J <- study_design$t_steps / cam_design$snap_rate
+      J <- study_design$num_hours / cam_design$snap_rate
       L <- cam_design$cam_A * M * J
       sum_c <- sum((J * cam_design$cam_A) ^ 2 * (count_data$count /
                                                    (J * cam_design$cam_A) - sum(count_data$count) / L) ^ 2)

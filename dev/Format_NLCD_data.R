@@ -21,9 +21,13 @@ mu <- c(4, 2, 0.02, 0.5)
 #   x = list(510:540),
 #   y = list(385:415)
 # )
+# custom_tiles <- tibble::tibble(
+#   x = list(110:140),
+#   y = list(300:330)
+# )
 custom_tiles <- tibble::tibble(
-  x = list(110:140),
-  y = list(300:330)
+  x = list(141:230),
+  y = list(299:388)
 )
 # # custom tile for tif 1
 # custom_tiles <- tibble::tibble(

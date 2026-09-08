@@ -138,6 +138,46 @@ ABM_sim <- function(
         active_par <- unlist(activity_par[ci])
 
         step_count <- 0
+
+        if (!is.null(h_range_strength)) {
+          # Calculate distance to the home range center
+          dist_to_center <- sqrt(
+            (h_range_center[1] - group_X[ci, i])^2 +
+              (h_range_center[2] - group_Y[ci, i])^2
+          )
+
+          # Scale the pull strength based on distance
+          dynamic_strength <- h_range_strength[ci] * dist_to_center
+
+          # Calculate angle from individual to home range center
+          theta_h <- atan2(
+            h_range_center[2] - group_Y[ci, i],
+            h_range_center[1] - group_X[ci, i]
+          ) %% (2 * pi)
+
+          # Convert the CURRENT angle (Group/Landscape) to a Vector
+          v1_x <- cos(theta.all[ci])
+          v1_y <- sin(theta.all[ci])
+
+          # Convert Home Range angle to a Vector
+          v2_x <- cos(theta_h) * dynamic_strength
+          v2_y <- sin(theta_h) * dynamic_strength
+
+          # Add Vectors to get the new Mean Direction
+          avg_x <- v1_x + v2_x
+          avg_y <- v1_y + v2_y
+
+          # Convert back to an angle (Mean Direction)
+          mean_theta <- atan2(avg_y, avg_x) %% (2 * pi)
+
+          # Use individual's direction to determine direction
+          resultant_length <- sqrt(avg_x^2 + avg_y^2)
+
+          # Sample from Von Mises using weighted mean direction
+          theta.all[ci] <- Rfast::rvonmises(1, mean_theta, resultant_length)
+
+        }
+
         # Individual moves across landscape until time is depleted
         while (t.step > 0) {
           # x,y indices of individual
@@ -145,54 +185,18 @@ ABM_sim <- function(
           Y.ind <- ceiling(group_Y[ci, i] * (q^0.5 / max(bounds)))
 
           # Determine movement speed in current space
-          tmp_speed <- lscape_defs$Value[lscape_defs$X == X.ind &
-                                           lscape_defs$Y == Y.ind]
+          # tmp_speed <- lscape_defs$Value[lscape_defs$X == X.ind &
+          #                                  lscape_defs$Y == Y.ind]
           # v <- tmp_speed
-          v <- truncnorm::rtruncnorm(1,
-                                     a = 0,
-                                     b = Inf,
-                                     tmp_speed,
-                                     tmp_speed / 10)
+          tmp_rate <- lscape_defs$gamma_rate[
+            lscape_defs$X == X.ind & lscape_defs$Y == Y.ind
+          ]
+          tmp_shape <- lscape_defs$gamma_shape[
+            lscape_defs$X == X.ind & lscape_defs$Y == Y.ind
+          ]
+          v <- rgamma(1, tmp_rate, tmp_shape)
+
           step.size <- v * t.step
-
-          if (!is.null(h_range_strength)) {
-            # Calculate distance to the home range center
-            dist_to_center <- sqrt(
-              (h_range_center[1] - group_X[ci, i])^2 +
-                (h_range_center[2] - group_Y[ci, i])^2
-            )
-
-            # Scale the pull strength based on distance
-            dynamic_strength <- h_range_strength[ci] * dist_to_center
-
-            # Calculate angle from individual to home range center
-            theta_h <- atan2(
-              h_range_center[2] - group_Y[ci, i],
-              h_range_center[1] - group_X[ci, i]
-            ) %% (2 * pi)
-
-            # Convert the CURRENT angle (Group/Landscape) to a Vector
-            v1_x <- cos(theta.all[ci])
-            v1_y <- sin(theta.all[ci])
-
-            # Convert Home Range angle to a Vector
-            v2_x <- cos(theta_h) * dynamic_strength
-            v2_y <- sin(theta_h) * dynamic_strength
-
-            # Add Vectors to get the new Mean Direction
-            avg_x <- v1_x + v2_x
-            avg_y <- v1_y + v2_y
-
-            # Convert back to an angle (Mean Direction)
-            mean_theta <- atan2(avg_y, avg_x) %% (2 * pi)
-
-            # Use individual's direction to determine direction
-            resultant_length <- sqrt(avg_x^2 + avg_y^2)
-
-            # Sample from Von Mises using weighted mean direction
-            theta.all[ci] <- Rfast::rvonmises(1, mean_theta, resultant_length)
-
-          }
 
           # Step length components
           dX <- step.size * cos(as.numeric(theta.all[ci]))
@@ -227,6 +231,9 @@ ABM_sim <- function(
             (a == 1 & b < 1 & b > 0) |
             (b == 0 & a < 1 & a > 0) |
             (b == 1 & a < 1 & a > 0)
+
+          # Replace NAs with FALSE (occurs, e.g., when animals walk parallel to grid lines)
+          int.check[is.na(int.check)] <- FALSE
 
           # If individual crosses into new landscape cell, change movement speed
           if (any(int.check == T)) {
@@ -263,7 +270,7 @@ ABM_sim <- function(
             tmp_lscape_type <- lscape_defs$Speed[lscape_defs$X == tx & lscape_defs$Y == ty]
 
             if (temp.X < max(bounds) & temp.X > min(bounds) &
-              temp.Y < max(bounds) & temp.Y > min(bounds) & tmp_lscape_type != "Water"
+              temp.Y < max(bounds) & temp.Y > min(bounds) & !(tmp_lscape_type %in% "Water")
             ) {
               t.step <- t.step - sqrt((group_X[ci, i] - (temp.X))^2 +
                                         (group_Y[ci, i] - (temp.Y))^2) / v
@@ -406,9 +413,9 @@ ABM_sim <- function(
   ) |>
     dplyr::group_by(Animal_ID) |>
     dplyr::mutate(
-      trav_dist = c(NA, sqrt((X[2:n()] - X[1:(n() - 1)])^2 +
-        (Y[2:n()] - Y[1:(n() - 1)])^2)),
-      trav_speeds = trav_dist / c(NA, t[2:n()] - t[1:(n() - 1)])
+      trav_dist = c(sqrt((X[2:n()] - X[1:(n() - 1)])^2 +
+        (Y[2:n()] - Y[1:(n() - 1)])^2), NA),
+      trav_speeds = trav_dist / c(t[2:n()] - t[1:(n() - 1)], NA)
     ) |>
     dplyr::ungroup()
 
