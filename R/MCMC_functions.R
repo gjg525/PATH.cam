@@ -22,7 +22,7 @@
 #' \itemize{
 #'   \item \code{n_iter}: Number of MCMC iterations.
 #'   \item \code{dx}, \code{dy}: Grid cell dimensions.
-#'   \item \code{t_steps}: Number of time steps.
+#'   \item \code{num_hours}: Number of time steps.
 #'   \item \code{covariate_labels}: Names of the covariates (e.g., speed categories).
 #'   \item \code{num_covariates}: Integer count of covariates.
 #'   \item \code{Z}: Covariate design matrix.
@@ -78,7 +78,7 @@ fit.model.mcmc.PATH <- function(study_design,
   n_iter <- study_design$n_iter
   cam_A <- cam_design$cam_A
   cell_A <- study_design$dx * study_design$dy
-  t_steps <- study_design$t_steps
+  num_hours <- study_design$num_hours
   covariate_labels <- unlist(study_design$covariate_labels)
   num_covariates <- study_design$num_covariates
   Z <- matrix(unlist(study_design$Z), study_design$q, study_design$num_covariates)
@@ -107,7 +107,7 @@ fit.model.mcmc.PATH <- function(study_design,
   stay_prop <- exp(kappa[1, ]) / sum(exp(kappa[1, ]))
 
   u <- d * habitat_summary$n_lscape / stay_prop *
-    habitat_summary$prop_cams / (cam_design$cam_A * t_steps / cam_design$snap_rate)
+    habitat_summary$prop_cams / (cam_design$cam_A * num_hours / cam_design$snap_rate)
 
   tot_u <- sum(u)
 
@@ -189,7 +189,7 @@ fit.model.mcmc.PATH <- function(study_design,
     # kappa[i + 1, ] <- log(stay_prop)
 
     u <- d * habitat_summary$n_lscape / stay_prop *
-      habitat_summary$prop_cams / (cam_design$cam_A * t_steps / cam_design$snap_rate)
+      habitat_summary$prop_cams / (cam_design$cam_A * num_hours / cam_design$snap_rate)
 
     tot_u[i + 1] <- sum(u)
 
@@ -237,7 +237,7 @@ fit.model.mcmc.PATH <- function(study_design,
 #' \itemize{
 #'   \item \code{n_iter}: Number of MCMC iterations.
 #'   \item \code{dx}, \code{dy}: Grid cell dimensions.
-#'   \item \code{t_steps}: Number of time steps.
+#'   \item \code{num_hours}: Number of time steps.
 #'   \item \code{covariate_labels}: Names of the covariates (e.g., speed categories).
 #'   \item \code{num_covariates}: Integer count of covariates.
 #'   \item \code{Z}: Covariate design matrix.
@@ -293,7 +293,7 @@ fit.model.mcmc.PATH.NB <- function(study_design,
   n_iter <- study_design$n_iter
   cam_A <- cam_design$cam_A
   cell_A <- study_design$dx * study_design$dy
-  t_steps <- study_design$t_steps
+  num_hours <- study_design$num_hours
   covariate_labels <- unlist(study_design$covariate_labels)
   num_covariates <- study_design$num_covariates
   Z <- matrix(unlist(study_design$Z), study_design$q, study_design$num_covariates)
@@ -320,7 +320,7 @@ fit.model.mcmc.PATH.NB <- function(study_design,
   stay_prop <- exp(kappa[1, ]) / sum(exp(kappa[1, ]))
 
   u <- d * habitat_summary$n_lscape / stay_prop *
-    habitat_summary$prop_cams / (cam_design$cam_A * t_steps / cam_design$snap_rate)
+    habitat_summary$prop_cams / (cam_design$cam_A * num_hours / cam_design$snap_rate)
 
   tot_u[1] <- sum(u)
 
@@ -392,7 +392,7 @@ fit.model.mcmc.PATH.NB <- function(study_design,
 
     # Calculate total abundance (u)
     u <- d * habitat_summary$n_lscape / stay_prop *
-      habitat_summary$prop_cams / (cam_design$cam_A * t_steps / cam_design$snap_rate)
+      habitat_summary$prop_cams / (cam_design$cam_A * num_hours / cam_design$snap_rate)
 
     tot_u[i + 1] <- sum(u)
 
